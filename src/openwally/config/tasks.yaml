@@ -240,9 +240,7 @@ review_code:
     - "4_tasks.md"                   — T-xxx definitions of done
 
     Step 2 — Read the code:
-    Use `read_project_file` to read each source file listed in the manifests.
-    Start with files that implement API endpoints and authentication — those
-    are highest risk. Then read the frontend hooks and pages that call the API.
+    {review_instructions}
 
     Step 3 — Produce a structured review report with these sections:
 

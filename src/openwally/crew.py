@@ -32,6 +32,42 @@ _MODELS: dict[str, str] = {
 MODES = ("autonomous", "milestone", "interactive")
 _MILESTONE_TASKS = {"write_requirements", "design_ui", "write_tests"}
 
+REVIEW_DEPTHS = ("off", "standard", "thorough")
+
+# Injected as {review_instructions} into the review_code task description.
+_REVIEW_INSTRUCTIONS: dict[str, str] = {
+    "standard": (
+        "Read the code using a RISK-PRIORITISED approach — work through these tiers "
+        "in order and stop once you have enough evidence to fill every report section:\n\n"
+        "  Tier 1 — MUST READ IN FULL (highest risk):\n"
+        "    • Any file whose name contains: auth, token, jwt, session, middleware, "
+        "permission, role, password, hash, crypto, secret\n"
+        "    • All API route/endpoint handler files\n"
+        "    • All input validation and sanitisation modules\n\n"
+        "  Tier 2 — MUST READ IN FULL (correctness risk):\n"
+        "    • Data model definitions (models.py, schemas.py, types/api.ts)\n"
+        "    • Frontend hooks that call the backend API (src/hooks/)\n"
+        "    • Database access / repository layer\n\n"
+        "  Tier 3 — SKIM ONLY (read only if a Tier 1/2 file references something suspicious):\n"
+        "    • Utility helpers, config files, constants\n"
+        "    • Frontend components and pages (unless a Tier 1 issue traces here)\n\n"
+        "  SKIP entirely:\n"
+        "    • Test files, lock files (uv.lock, package-lock.json), generated "
+        "type declarations (.d.ts)\n\n"
+        "For each file you read, note which tier it belongs to in your internal reasoning."
+    ),
+    "thorough": (
+        "Read EVERY source file listed in both manifests — no exceptions, no skimming.\n\n"
+        "  • Read every backend file from 6_implementation_manifest.md\n"
+        "  • Read every frontend file from 7_ui_manifest.md\n"
+        "  • SKIP only: test files, lock files (uv.lock, package-lock.json), "
+        "and generated .d.ts declaration files\n\n"
+        "Thoroughness is the goal. Flag every discrepancy no matter how minor. "
+        "Every claim in the report must be backed by a direct quote or line reference "
+        "from the code you read."
+    ),
+}
+
 
 def _llm(model_key: str) -> LLM:
     model = _MODELS[model_key]
@@ -58,11 +94,14 @@ class OpenWallyCrew:
     agents_config = "config/agents.yaml"
     tasks_config = "config/tasks.yaml"
 
-    def __init__(self, project_dir: Path, docs_dir: Path, mode: str = "autonomous") -> None:
+    def __init__(self, project_dir: Path, docs_dir: Path,
+                 mode: str = "autonomous", review_depth: str = "standard") -> None:
         assert mode in MODES, f"mode must be one of {MODES}"
+        assert review_depth in REVIEW_DEPTHS, f"review_depth must be one of {REVIEW_DEPTHS}"
         self._project_dir = project_dir
         self._docs_dir = docs_dir
         self._mode = mode
+        self._review_depth = review_depth
         super().__init__()
 
     # ── Tool factories ────────────────────────────────────────────────────────
@@ -202,7 +241,19 @@ class OpenWallyCrew:
 
     @crew
     def crew(self) -> Crew:
-        return Crew(agents=self.agents, tasks=self.tasks,
+        tasks = [
+            self.write_requirements(),
+            self.design_system(),
+            self.threat_model(),
+            self.plan_tasks(),
+            self.design_ui(),
+            self.implement_code(),
+            self.implement_ui(),
+        ]
+        if self._review_depth != "off":
+            tasks.append(self.review_code())
+        tasks.extend([self.write_tests(), self.uat_report()])
+        return Crew(agents=self.agents, tasks=tasks,
                     process=Process.sequential, verbose=True)
 
 

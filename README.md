@@ -120,6 +120,7 @@ openwally run --spec "Build a URL shortener with per-link analytics and a React 
 | `--name NAME` | derived from spec | Folder name for the generated project |
 | `--output-dir DIR` | `./projects` | Parent directory for generated projects |
 | `--mode MODE` | `autonomous` | Human-in-the-loop level — see below |
+| `--review-depth DEPTH` | `standard` | Code review thoroughness — see below |
 | `--max-revisions N` | `2` | Max UAT revision cycles on NO-GO verdict (`0` to disable) |
 
 ---
@@ -146,6 +147,40 @@ openwally run --spec-file idea.md --max-revisions 3
 ```
 
 When a pause occurs, CrewAI prints the agent's output and prompts you for feedback. Type your notes and press Enter — the agent incorporates your feedback before the next agent runs. Press Enter with no input to accept as-is.
+
+---
+
+## Code review depth
+
+Control how exhaustively the Code Reviewer reads the generated source with `--review-depth`:
+
+| Depth | Behaviour | Best for |
+|---|---|---|
+| `off` | Skip code review entirely — agent not added to pipeline | Fast/cheap runs, iteration |
+| `standard` | Risk-prioritised: reads auth, API handlers, security code, data models, and API hooks in full; skims utilities (default) | Most runs — catches ~90% of real issues at ~30% of thorough cost |
+| `thorough` | Reads every source file in both manifests exhaustively | Pre-release, security-sensitive projects |
+
+```bash
+# Default — risk-prioritised
+openwally run --spec-file idea.md
+
+# Skip review entirely (fastest)
+openwally run --spec-file idea.md --review-depth off
+
+# Read every file
+openwally run --spec-file idea.md --review-depth thorough
+
+# Combine with other flags
+openwally run --spec-file idea.md --review-depth thorough --mode milestone --max-revisions 3
+```
+
+**Standard depth read order** (highest risk first):
+1. Auth, token, JWT, session, middleware, permission, password, crypto files
+2. API route/endpoint handlers
+3. Input validation and sanitisation modules
+4. Data model definitions
+5. Frontend hooks that call the backend API
+6. *(Skipped)* Utilities, config, components, test files, lock files
 
 ---
 

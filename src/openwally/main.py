@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
-from openwally.crew import MODES, OpenWallyCrew, RevisionCrew
+from openwally.crew import MODES, REVIEW_DEPTHS, _REVIEW_INSTRUCTIONS, OpenWallyCrew, RevisionCrew
 from openwally.scaffolding import scaffold
 
 load_dotenv()
@@ -48,6 +48,13 @@ def _parse_args() -> argparse.Namespace:
                      ))
     run.add_argument("--max-revisions", type=int, default=2, metavar="N",
                      help="Max UAT revision cycles on NO-GO verdict (default: 2, 0 = disabled)")
+    run.add_argument("--review-depth", choices=REVIEW_DEPTHS, default="standard",
+                     dest="review_depth",
+                     help=(
+                         "off — skip code review entirely; "
+                         "standard — risk-prioritised (auth, endpoints, models first) (default); "
+                         "thorough — reads every source file exhaustively"
+                     ))
 
     return parser.parse_args()
 
@@ -106,15 +113,22 @@ def run() -> None:
     console.print(f"[bold]Project:[/bold]       {project_name}")
     console.print(f"[bold]Output:[/bold]        {project_dir}")
     console.print(f"[bold]Mode:[/bold]          [cyan]{args.mode}[/cyan] — {_mode_description(args.mode)}")
+    console.print(f"[bold]Review depth:[/bold]  [cyan]{args.review_depth}[/cyan]")
     console.print(f"[bold]Max revisions:[/bold] {args.max_revisions}\n")
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
     console.print(Rule("[bold]Pipeline — Pass 1[/bold]"))
+    review_instructions = _REVIEW_INSTRUCTIONS.get(args.review_depth, "")
     OpenWallyCrew(
         project_dir=project_dir,
         docs_dir=docs_dir,
         mode=args.mode,
-    ).crew().kickoff(inputs={"project_spec": spec, "project_name": project_name})
+        review_depth=args.review_depth,
+    ).crew().kickoff(inputs={
+        "project_spec": spec,
+        "project_name": project_name,
+        "review_instructions": review_instructions,
+    })
 
     # ── UAT revision loop ──────────────────────────────────────────────────────
     uat_report = "10_uat_report.md"
