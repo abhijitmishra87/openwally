@@ -25,3 +25,7 @@ where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.bandit]
+exclude_dirs = ["tests", "eval", ".venv"]
+skips = ["B101"]  # assert statements are fine in non-prod code

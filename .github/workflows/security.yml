@@ -1,0 +1,75 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 8 * * 1"  # every Monday at 08:00 UTC
+
+jobs:
+  bandit:
+    name: Bandit — Python static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install bandit
+        run: pip install bandit[toml]
+
+      - name: Run bandit
+        run: bandit -r src/ -c pyproject.toml --exit-zero -f json -o bandit-report.json
+
+      - name: Print summary
+        if: always()
+        run: bandit -r src/ -c pyproject.toml --exit-zero
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  pip-audit:
+    name: pip-audit — dependency CVEs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit dependencies
+        run: pip-audit --requirement <(pip install -e . --dry-run 2>&1 | grep "Would install" | tr ' ' '\n' | grep '==' || echo "") || pip-audit -r <(pip show openwally 2>/dev/null | grep Requires | sed 's/Requires: //' | tr ', ' '\n' | grep -v '^$' || echo "setuptools") --skip-editable
+
+      - name: Audit pyproject.toml deps directly
+        run: |
+          pip install -e .
+          pip-audit
+
+  semgrep:
+    name: Semgrep — SAST
+    runs-on: ubuntu-latest
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run semgrep
+        run: >
+          semgrep scan
+          --config p/python
+          --config p/secrets
+          --config p/owasp-top-ten
+          --error
+          --quiet
+          src/
