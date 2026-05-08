@@ -6,14 +6,14 @@
 
 <p align="center">
   An autonomous AI agent pipeline that generates complete software projects from a plain-text idea.<br/>
-  Nine specialized agents — each backed by a different Claude model — collaborate to produce<br/>
-  requirements, architecture, security analysis, backend code, a modern React frontend, tests, and a UAT report.
+  Nine specialized agents collaborate sequentially, each contributing domain expertise — from requirements<br/>
+  through architecture, security, UI design, code, tests, and a self-correcting UAT review cycle.
 </p>
 
 <p align="center">
   Built on <a href="https://github.com/crewaiinc/crewai">CrewAI</a> &nbsp;·&nbsp;
   Evaluated with <a href="https://github.com/UKGovernmentAIS/inspect_ai">Inspect AI</a> &nbsp;·&nbsp;
-  Powered by <a href="https://www.anthropic.com">Anthropic Claude</a>
+  Powered by <a href="https://www.anthropic.com">Anthropic Claude</a> or <a href="https://ollama.com">Ollama</a>
 </p>
 
 ---
@@ -25,25 +25,32 @@ You provide a project idea. The pipeline does the rest:
 ```
 Program Manager → Software Architect → Security Architect → Engineering Manager
     → UI/UX Designer → Backend Developer → UI Developer → Quality Engineer → UAT Tester
+                                                                                  ↓
+                                                              NO-GO → Revision cycle (up to N times)
+                                                                  Backend Dev → UI Dev → QA → UAT
+                                                                                                ↓
+                                                                                              GO → scaffold & git
 ```
 
-Each agent reads the prior agent's output as context and writes its own artifact to `.harness-docs/`. The backend developer and UI developer write actual source files directly into the generated project. After the pipeline completes, the scaffolding step initialises a `uv`-managed Python environment, installs the React frontend with `npm`, and makes the first `git` commit — ready to push to GitHub.
+Every agent appends a **Testing Notes** section to its artifact — domain-specific test cases that the Quality Engineer and UAT Tester consume. This means security test cases come from the Security Architect, API contract tests from the Software Architect, interaction state tests from the UI Designer, and edge cases from the developers who wrote the code.
+
+If UAT returns a NO-GO verdict, a targeted revision crew automatically fixes the defects and re-evaluates — up to a configurable limit.
 
 ### Agent roles and models
 
-| Agent | Model | Responsibility |
+| Agent | Default model | Responsibility |
 |---|---|---|
-| Program Manager | claude-opus-4-7 | Requirements doc with numbered FRs and acceptance criteria |
-| Software Architect | claude-opus-4-7 | System design, API contracts, data models |
-| Security Architect | claude-opus-4-7 | STRIDE threat model, numbered security requirements |
-| Engineering Manager | claude-sonnet-4-6 | Ordered dev task list with definitions of done |
-| UI/UX Designer | claude-opus-4-7 | Wireframes, design tokens, shadcn/ui component mapping |
-| Backend Developer | claude-sonnet-4-6 | Python source code + `deps.txt` |
-| UI Developer | claude-opus-4-7 | React + TypeScript + Tailwind + shadcn/ui frontend |
-| Quality Engineer | claude-sonnet-4-6 | pytest suite for backend and frontend |
-| UAT Tester | claude-haiku-4-5 | Pass/fail against every acceptance criterion, GO/NO-GO verdict |
+| Program Manager | claude-opus-4-7 | Requirements doc, acceptance criteria, testing setup notes |
+| Software Architect | claude-opus-4-7 | System design, API contracts, integration test scenarios |
+| Security Architect | claude-opus-4-7 | STRIDE threat model, security requirements, concrete security test cases |
+| Engineering Manager | claude-sonnet-4-6 | Dev task list, testable definition-of-done per task |
+| UI/UX Designer | claude-opus-4-7 | Wireframes, design tokens, interaction state and form validation tests |
+| Backend Developer | claude-sonnet-4-6 | Python source code, implementation edge case notes |
+| UI Developer | claude-opus-4-7 | React + TypeScript + Tailwind + shadcn/ui, component test notes |
+| Quality Engineer | claude-sonnet-4-6 | Full test suite implementing every agent's Testing Notes |
+| UAT Tester | claude-haiku-4-5 | Pass/fail against all ACs, SRs, architecture compliance, UI fidelity |
 
-Every model assignment is overridable via environment variable — see [Configuration](#configuration).
+Every model is independently overridable via environment variable and supports both Claude and Ollama — see [Configuration](#configuration).
 
 ---
 
@@ -53,7 +60,7 @@ Every model assignment is overridable via environment variable — see [Configur
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) — Python package manager
 - [Node.js](https://nodejs.org/) 18+ and `npm` — for the generated frontend
 - [git](https://git-scm.com/)
-- An Anthropic API key
+- An Anthropic API key **or** [Ollama](https://ollama.com) running locally
 
 Optional, for pushing to GitHub:
 - [GitHub CLI (`gh`)](https://cli.github.com/)
@@ -66,14 +73,12 @@ Optional, for pushing to GitHub:
 git clone https://github.com/<you>/openwally.git
 cd openwally
 
-# Create a virtual environment and install dependencies
 uv venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 uv pip install -e .
 
-# Configure your API key
 cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
+# Edit .env — set ANTHROPIC_API_KEY or configure Ollama models
 ```
 
 ---
@@ -93,8 +98,6 @@ The app should send email notifications on status changes and export
 approved expenses as CSV.
 ```
 
-Then run:
-
 ```bash
 openwally run --spec-file idea.md
 ```
@@ -105,14 +108,58 @@ openwally run --spec-file idea.md
 openwally run --spec "Build a URL shortener with per-link analytics and a React dashboard"
 ```
 
-### Options
+### All options
 
 | Flag | Default | Description |
 |---|---|---|
 | `--spec-file FILE` | — | Path to a `.md` or `.txt` file with the project spec |
-| `--spec TEXT` | — | Project idea as an inline string (mutually exclusive with `--spec-file`) |
+| `--spec TEXT` | — | Project idea as an inline string |
 | `--name NAME` | derived from spec | Folder name for the generated project |
 | `--output-dir DIR` | `./projects` | Parent directory for generated projects |
+| `--mode MODE` | `autonomous` | Human-in-the-loop level — see below |
+| `--max-revisions N` | `2` | Max UAT revision cycles on NO-GO verdict (`0` to disable) |
+
+---
+
+## Human-in-the-loop modes
+
+Control how much you want to be involved using `--mode`:
+
+| Mode | Behaviour | When to use |
+|---|---|---|
+| `autonomous` | Fully hands-off, no pauses (default) | Unattended runs, CI/CD |
+| `milestone` | Pauses after **requirements**, **UI design**, and **tests** for your review | First run on a new idea — review before costly steps lock in |
+| `interactive` | Pauses after **every agent** for your feedback | Tight control, exploration, debugging |
+
+```bash
+# Review requirements and UI design before coding starts
+openwally run --spec-file idea.md --mode milestone
+
+# Review every agent's output
+openwally run --spec-file idea.md --mode interactive
+
+# Fully autonomous with up to 3 self-correction cycles
+openwally run --spec-file idea.md --max-revisions 3
+```
+
+When a pause occurs, CrewAI prints the agent's output and prompts you for feedback. Type your notes and press Enter — the agent incorporates your feedback before the next agent runs. Press Enter with no input to accept as-is.
+
+---
+
+## UAT revision loop
+
+If the UAT Tester returns a **NO-GO** verdict, OpenWally automatically runs a targeted revision cycle:
+
+```
+UAT: NO-GO
+  → Backend Developer reads the UAT report, fixes backend defects
+  → UI Developer reads the UAT report, fixes frontend defects
+  → Quality Engineer re-tests the fixed code
+  → UAT Tester re-evaluates (focused on prior failures + regression check)
+  → GO? Done. Still NO-GO? Repeat up to --max-revisions times.
+```
+
+Each revision cycle saves its own artifacts (`revision_1_backend_fixes.md`, `revision_1_uat_report.md`, etc.) so you have a full audit trail. The scaffold step always runs at the end — even on a final NO-GO — so the project is always written to disk for manual fixes.
 
 ---
 
@@ -123,8 +170,7 @@ The generated project is written to `<output-dir>/<project-name>/`:
 ```
 my-project/
 ├── src/my_project/          # Python backend source
-│   └── ...
-├── tests/                   # pytest test suite
+├── tests/                   # pytest suite (implements all Testing Notes from every agent)
 │   ├── conftest.py
 │   └── test_*.py
 ├── frontend/                # React + TypeScript + Tailwind frontend
@@ -132,17 +178,17 @@ my-project/
 │   │   ├── components/ui/   # shadcn/ui primitive wrappers
 │   │   ├── components/      # feature components
 │   │   ├── pages/           # one file per route
-│   │   ├── hooks/           # API hooks (typed, no direct fetch in components)
+│   │   ├── hooks/           # API hooks
 │   │   └── types/api.ts     # TypeScript types matching backend contracts
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── tailwind.config.ts
-├── deps.txt                 # Python package list (consumed by scaffolding)
+├── deps.txt                 # Python packages (consumed by uv)
 ├── pyproject.toml           # Created by uv init
 ├── uv.lock
 ├── .venv/                   # Python virtual environment
 ├── .gitignore
-└── .harness-docs/           # Pipeline documents
+└── .harness-docs/           # Full pipeline audit trail
     ├── 1_requirements.md
     ├── 2_architecture.md
     ├── 3_security.md
@@ -151,18 +197,14 @@ my-project/
     ├── 6_implementation_manifest.md
     ├── 7_ui_manifest.md
     ├── 8_test_plan.md
-    └── 9_uat_report.md
+    ├── 9_uat_report.md
+    └── revision_*/          # Present only if revision cycles ran
 ```
 
-After the pipeline finishes, OpenWally prints the exact commands to push your new project to GitHub:
+After the pipeline finishes, OpenWally prints the commands to push your project to GitHub:
 
 ```bash
-# One-step create + push with GitHub CLI
 gh repo create my-project --private --source=./projects/my-project --push
-
-# Or manually
-git -C ./projects/my-project remote add origin git@github.com:<you>/my-project.git
-git -C ./projects/my-project push -u origin main
 ```
 
 ---
@@ -172,19 +214,18 @@ git -C ./projects/my-project push -u origin main
 ```bash
 cd projects/my-project
 
-# Backend (FastAPI example)
+# Backend
 uv run uvicorn src.my_project.main:app --reload
 
-# Frontend (in a second terminal)
-cd frontend
-npm run dev
+# Frontend (second terminal)
+cd frontend && npm run dev
 ```
 
 ---
 
 ## Configuration
 
-All model assignments can be overridden in `.env`. Every role independently supports either a **Claude model** (via Anthropic API) or a **local Ollama model** — mix and match as needed.
+All model assignments can be overridden in `.env`. Every role independently supports either a **Claude model** or a **local Ollama model** — mix and match freely.
 
 ### All Claude (default — highest quality)
 
@@ -204,20 +245,17 @@ UAT_MODEL=claude-haiku-4-5-20251001
 
 ### Hybrid — Ollama for lighter roles (cost saving)
 
-Keep Claude for the high-reasoning roles (architecture, security, UI design) and use free local models for simpler pass/fail tasks:
+Keep Claude for high-reasoning roles and use free local models for pass/fail evaluation:
 
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...
-OLLAMA_BASE_URL=http://localhost:11434   # default, can omit
+OLLAMA_BASE_URL=http://localhost:11434
 
-# everything else stays on Claude defaults
 QA_MODEL=ollama/llama3.2
 UAT_MODEL=ollama/mistral
 ```
 
 ### Fully local — no API key required
-
-Run the entire pipeline offline. Output quality will be lower, but it costs nothing and is fully private:
 
 ```dotenv
 OLLAMA_BASE_URL=http://localhost:11434
@@ -235,38 +273,29 @@ UAT_MODEL=ollama/llama3.2
 
 ### Ollama setup
 
-1. Install Ollama: [ollama.com](https://ollama.com)
-2. Pull the models you want to use:
-   ```bash
-   ollama pull llama3.2
-   ollama pull mistral
-   ```
-3. Ollama runs automatically in the background once installed. Confirm it's up:
-   ```bash
-   ollama list
-   ```
-
-Assigning different models to different roles is intentional — it reduces single-model bias and lets high-complexity roles use more capable models while keeping cost down for simpler tasks.
+```bash
+# Install: https://ollama.com
+ollama pull llama3.2
+ollama pull mistral
+ollama list   # confirm models are ready
+```
 
 ---
 
 ## Evaluation harness
 
-[Inspect AI](https://github.com/UKGovernmentAIS/inspect_ai) tasks in `eval/` measure pipeline output quality across three dimensions:
+[Inspect AI](https://github.com/UKGovernmentAIS/inspect_ai) tasks in `eval/` measure pipeline output quality:
 
 | Task | What it checks |
 |---|---|
-| `eval_requirements_completeness` | All six required sections present, ≥3 numbered FRs, ≥3 numbered ACs |
-| `eval_security_coverage` | STRIDE categories mentioned, ≥2 numbered SRs, risk ratings present |
+| `eval_requirements_completeness` | All six sections present, ≥3 numbered FRs and ACs |
+| `eval_security_coverage` | STRIDE categories, ≥2 numbered SRs, risk ratings |
 | `eval_uat_verdict` | Pipeline produces a clear GO or NO-GO verdict |
-
-Run the full eval suite:
 
 ```bash
 inspect eval eval/pipeline_eval.py --model anthropic/claude-sonnet-4-6
+inspect view   # browse results in the web UI
 ```
-
-Results are logged by Inspect AI and viewable in its web UI (`inspect view`).
 
 ---
 
@@ -275,14 +304,15 @@ Results are logged by Inspect AI and viewable in its web UI (`inspect view`).
 ```
 openwally/
 ├── src/openwally/
-│   ├── crew.py              # CrewAI @CrewBase — agents, tasks, pipeline order
-│   ├── main.py              # CLI entry point
+│   ├── crew.py              # OpenWallyCrew + RevisionCrew (@CrewBase)
+│   ├── main.py              # CLI — --mode, --max-revisions, revision loop
 │   ├── scaffolding.py       # uv + npm + git post-pipeline setup
 │   ├── config/
-│   │   ├── agents.yaml      # Agent roles, goals, backstories, model assignments
-│   │   └── tasks.yaml       # Task descriptions, expected outputs, context chain
+│   │   ├── agents.yaml      # Roles, goals, backstories, model assignments
+│   │   └── tasks.yaml       # Task descriptions, Testing Notes instructions, context chains
 │   └── tools/
-│       ├── artifact_writer.py      # Writes pipeline docs to .harness-docs/
+│       ├── artifact_writer.py   # Writes pipeline docs to .harness-docs/
+│       ├── artifact_reader.py   # Reads pipeline docs (used by revision agents)
 │       └── project_file_writer.py  # Writes source files into the generated project
 ├── eval/
 │   ├── pipeline_eval.py     # Inspect AI task definitions
@@ -295,7 +325,7 @@ openwally/
 
 ## Publishing to GitHub
 
-See [UPLOAD.md](UPLOAD.md) for a complete step-by-step guide to safely uploading this project to your private GitHub repository.
+See [UPLOAD.md](UPLOAD.md) for a step-by-step guide to safely uploading this project to your private GitHub repository.
 
 ---
 

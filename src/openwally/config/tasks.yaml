@@ -292,3 +292,91 @@ uat_report:
     and task completion. Pass/fail/blocked table per category. GO / NO-GO verdict.
   agent: uat_tester
   context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui, write_tests]
+
+# ── Revision cycle tasks (used only when UAT returns NO-GO) ──────────────────
+
+fix_code:
+  description: >
+    The UAT report identified critical backend defects that must be fixed before
+    the project can ship. Use `read_artifact` to read "9_uat_report.md" and
+    identify every backend defect. Also read "2_architecture.md" and
+    "3_security.md" to ensure your fixes stay within the agreed design and
+    satisfy all security requirements.
+
+    Fix ONLY what is broken — do not refactor working code.
+    Use `write_project_file` to overwrite each affected file with the complete
+    corrected version. One tool call per file.
+
+    After fixing, use `write_artifact` to save a fix summary as
+    "revision_{revision_num}_backend_fixes.md" listing:
+    - Which defects were addressed
+    - Which files were changed and why
+    - Any defects that could not be fixed and why
+  expected_output: >
+    Corrected source files written via write_project_file.
+    Fix summary artifact saved via write_artifact.
+  agent: developer
+
+fix_ui:
+  description: >
+    The UAT report identified critical frontend defects that must be fixed.
+    Use `read_artifact` to read "9_uat_report.md" for the UI defects, and
+    "5_ui_design.md" to verify your fixes match the original design spec.
+
+    Fix ONLY what is broken — do not rewrite working components.
+    Use `write_project_file` to overwrite each affected frontend file with the
+    complete corrected version. One tool call per file.
+
+    After fixing, use `write_artifact` to save a fix summary as
+    "revision_{revision_num}_ui_fixes.md" listing:
+    - Which UI defects were addressed
+    - Which files were changed and why
+    - Any defects that could not be fixed and why
+  expected_output: >
+    Corrected frontend files written via write_project_file.
+    Fix summary artifact saved via write_artifact.
+  agent: ui_developer
+
+re_test:
+  description: >
+    The backend and frontend have been revised. Re-run the full test suite
+    against the corrected implementation.
+
+    Use `read_artifact` to read the fix summaries to understand what changed.
+    Update or add tests specifically targeting the defects that were fixed.
+    Use `write_project_file` to write updated test files.
+
+    Use `write_artifact` to save an updated test plan as
+    "revision_{revision_num}_test_plan.md" noting which defects now have
+    test coverage and whether any gaps remain.
+  expected_output: >
+    Updated test files written via write_project_file.
+    Revised test plan artifact saved via write_artifact.
+  agent: quality_engineer
+
+re_uat:
+  description: >
+    The implementation has been revised and retested. Re-evaluate the project
+    against all original acceptance criteria.
+
+    Use `read_artifact` to read:
+    - "1_requirements.md" — the original acceptance criteria
+    - "3_security.md" — the original security requirements
+    - "9_uat_report.md" — the prior UAT report with the defect list
+    - "revision_{revision_num}_backend_fixes.md" — what the developer fixed
+    - "revision_{revision_num}_ui_fixes.md" — what the UI developer fixed
+
+    Focus your evaluation on the previously-failed items. For each prior defect:
+    PASS if fixed, FAIL if still broken, BLOCKED if evidence is insufficient.
+
+    Produce a revised UAT report with:
+    1. Prior defects — PASS / FAIL / BLOCKED with evidence
+    2. Regression check — confirm previously-passing items still pass
+    3. Updated summary table
+    4. Final verdict: GO / NO-GO with justification
+
+    Use `write_artifact` to save as "revision_{revision_num}_uat_report.md".
+  expected_output: >
+    Revised UAT report with focused pass/fail on prior defects, regression check,
+    and a final GO / NO-GO verdict.
+  agent: uat_tester
