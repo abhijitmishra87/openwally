@@ -363,12 +363,6 @@ openwally/
 
 ---
 
-## Publishing to GitHub
-
-See [UPLOAD.md](UPLOAD.md) for a step-by-step guide to safely uploading this project to your private GitHub repository.
-
----
-
 ## License
 
 MIT
