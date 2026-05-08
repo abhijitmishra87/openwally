@@ -48,6 +48,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Upgrade pip and build tools
+        run: pip install --upgrade pip setuptools wheel
+
       - name: Install dependencies and pip-audit
         run: pip install pip-audit -e .
 
