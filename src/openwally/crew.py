@@ -7,19 +7,21 @@ from dotenv import load_dotenv
 from openwally.tools.artifact_writer import ArtifactWriterTool
 from openwally.tools.artifact_reader import ArtifactReaderTool
 from openwally.tools.project_file_writer import ProjectFileWriterTool
+from openwally.tools.project_file_reader import ProjectFileReaderTool
 
 load_dotenv()
 
 _MODELS: dict[str, str] = {
-    "PM_MODEL":          os.getenv("PM_MODEL",          "claude-opus-4-7"),
-    "ARCHITECT_MODEL":   os.getenv("ARCHITECT_MODEL",   "claude-opus-4-7"),
-    "SECURITY_MODEL":    os.getenv("SECURITY_MODEL",    "claude-opus-4-7"),
-    "EM_MODEL":          os.getenv("EM_MODEL",          "claude-sonnet-4-6"),
-    "UI_DESIGNER_MODEL": os.getenv("UI_DESIGNER_MODEL", "claude-opus-4-7"),
-    "UI_DEV_MODEL":      os.getenv("UI_DEV_MODEL",      "claude-opus-4-7"),
-    "DEV_MODEL":         os.getenv("DEV_MODEL",         "claude-sonnet-4-6"),
-    "QA_MODEL":          os.getenv("QA_MODEL",          "claude-sonnet-4-6"),
-    "UAT_MODEL":         os.getenv("UAT_MODEL",         "claude-haiku-4-5-20251001"),
+    "PM_MODEL":             os.getenv("PM_MODEL",             "claude-opus-4-7"),
+    "ARCHITECT_MODEL":      os.getenv("ARCHITECT_MODEL",      "claude-opus-4-7"),
+    "SECURITY_MODEL":       os.getenv("SECURITY_MODEL",       "claude-opus-4-7"),
+    "EM_MODEL":             os.getenv("EM_MODEL",             "claude-sonnet-4-6"),
+    "UI_DESIGNER_MODEL":    os.getenv("UI_DESIGNER_MODEL",    "claude-opus-4-7"),
+    "UI_DEV_MODEL":         os.getenv("UI_DEV_MODEL",         "claude-opus-4-7"),
+    "DEV_MODEL":            os.getenv("DEV_MODEL",            "claude-sonnet-4-6"),
+    "CODE_REVIEWER_MODEL":  os.getenv("CODE_REVIEWER_MODEL",  "claude-opus-4-7"),
+    "QA_MODEL":             os.getenv("QA_MODEL",             "claude-sonnet-4-6"),
+    "UAT_MODEL":            os.getenv("UAT_MODEL",            "claude-haiku-4-5-20251001"),
 }
 
 # Valid modes and which tasks pause for human review in each mode.
@@ -51,7 +53,7 @@ def _llm(model_key: str) -> LLM:
 @CrewBase
 class OpenWallyCrew:
     """Sequential pipeline: PM → Architect → Security → EM → UI Designer →
-    Backend Dev → UI Dev → QA → UAT"""
+    Backend Dev → UI Dev → Code Reviewer → QA → UAT"""
 
     agents_config = "config/agents.yaml"
     tasks_config = "config/tasks.yaml"
@@ -73,6 +75,9 @@ class OpenWallyCrew:
 
     def _file_writer(self) -> ProjectFileWriterTool:
         return ProjectFileWriterTool(project_dir=str(self._project_dir))
+
+    def _file_reader(self) -> ProjectFileReaderTool:
+        return ProjectFileReaderTool(project_dir=str(self._project_dir))
 
     def _human_input(self, task_name: str) -> bool:
         if self._mode == "interactive":
@@ -121,15 +126,25 @@ class OpenWallyCrew:
                      tools=[self._file_writer(), self._doc_writer()], verbose=True)
 
     @agent
+    def code_reviewer(self) -> Agent:
+        return Agent(config=self.agents_config["code_reviewer"],
+                     llm=_llm("CODE_REVIEWER_MODEL"),
+                     tools=[self._file_reader(), self._doc_reader(), self._doc_writer()],
+                     verbose=True)
+
+    @agent
     def quality_engineer(self) -> Agent:
         return Agent(config=self.agents_config["quality_engineer"],
                      llm=_llm("QA_MODEL"),
-                     tools=[self._file_writer(), self._doc_writer()], verbose=True)
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_writer(), self._doc_reader()],
+                     verbose=True)
 
     @agent
     def uat_tester(self) -> Agent:
         return Agent(config=self.agents_config["uat_tester"],
-                     llm=_llm("UAT_MODEL"), tools=[self._doc_writer()], verbose=True)
+                     llm=_llm("UAT_MODEL"),
+                     tools=[self._doc_writer(), self._doc_reader()], verbose=True)
 
     # ── Tasks ─────────────────────────────────────────────────────────────────
 
@@ -167,6 +182,11 @@ class OpenWallyCrew:
     def implement_ui(self) -> Task:
         return Task(config=self.tasks_config["implement_ui"],
                     human_input=self._human_input("implement_ui"))
+
+    @task
+    def review_code(self) -> Task:
+        return Task(config=self.tasks_config["review_code"],
+                    human_input=self._human_input("review_code"))
 
     @task
     def write_tests(self) -> Task:
@@ -213,6 +233,9 @@ class RevisionCrew:
     def _file_writer(self) -> ProjectFileWriterTool:
         return ProjectFileWriterTool(project_dir=str(self._project_dir))
 
+    def _file_reader(self) -> ProjectFileReaderTool:
+        return ProjectFileReaderTool(project_dir=str(self._project_dir))
+
     def _human_input(self) -> bool:
         return self._mode == "interactive"
 
@@ -222,21 +245,24 @@ class RevisionCrew:
     def developer(self) -> Agent:
         return Agent(config=self.agents_config["developer"],
                      llm=_llm("DEV_MODEL"),
-                     tools=[self._file_writer(), self._doc_writer(), self._doc_reader()],
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_writer(), self._doc_reader()],
                      verbose=True)
 
     @agent
     def ui_developer(self) -> Agent:
         return Agent(config=self.agents_config["ui_developer"],
                      llm=_llm("UI_DEV_MODEL"),
-                     tools=[self._file_writer(), self._doc_writer(), self._doc_reader()],
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_writer(), self._doc_reader()],
                      verbose=True)
 
     @agent
     def quality_engineer(self) -> Agent:
         return Agent(config=self.agents_config["quality_engineer"],
                      llm=_llm("QA_MODEL"),
-                     tools=[self._file_writer(), self._doc_writer(), self._doc_reader()],
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_writer(), self._doc_reader()],
                      verbose=True)
 
     @agent

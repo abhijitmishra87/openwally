@@ -24,15 +24,17 @@ You provide a project idea. The pipeline does the rest:
 
 ```
 Program Manager → Software Architect → Security Architect → Engineering Manager
-    → UI/UX Designer → Backend Developer → UI Developer → Quality Engineer → UAT Tester
-                                                                                  ↓
-                                                              NO-GO → Revision cycle (up to N times)
-                                                                  Backend Dev → UI Dev → QA → UAT
-                                                                                                ↓
-                                                                                              GO → scaffold & git
+    → UI/UX Designer → Backend Developer → UI Developer → Code Reviewer → Quality Engineer → UAT Tester
+                                                                                                    ↓
+                                                                        NO-GO → Revision cycle (up to N times)
+                                                                            Backend Dev → UI Dev → QA → UAT
+                                                                                                          ↓
+                                                                                                        GO → scaffold & git
 ```
 
-Every agent appends a **Testing Notes** section to its artifact — domain-specific test cases that the Quality Engineer and UAT Tester consume. This means security test cases come from the Security Architect, API contract tests from the Software Architect, interaction state tests from the UI Designer, and edge cases from the developers who wrote the code.
+Every agent appends a **Testing Notes** section to its artifact — domain-specific test cases consumed by the Quality Engineer and UAT Tester. Security test cases come from the Security Architect, API contract tests from the Software Architect, interaction state tests from the UI Designer, and implementation edge cases from the developers.
+
+The **Code Reviewer** reads every source file after both developers finish, cross-references the code against the architecture contracts, security requirements, and task definitions of done, and produces a structured report before QA runs. This closes the gap between what was designed and what was actually built.
 
 If UAT returns a NO-GO verdict, a targeted revision crew automatically fixes the defects and re-evaluates — up to a configurable limit.
 
@@ -47,7 +49,8 @@ If UAT returns a NO-GO verdict, a targeted revision crew automatically fixes the
 | UI/UX Designer | claude-opus-4-7 | Wireframes, design tokens, interaction state and form validation tests |
 | Backend Developer | claude-sonnet-4-6 | Python source code, implementation edge case notes |
 | UI Developer | claude-opus-4-7 | React + TypeScript + Tailwind + shadcn/ui, component test notes |
-| Quality Engineer | claude-sonnet-4-6 | Full test suite implementing every agent's Testing Notes |
+| Code Reviewer | claude-opus-4-7 | Reads actual source files, verifies architecture/security/task compliance |
+| Quality Engineer | claude-sonnet-4-6 | Full test suite implementing every agent's Testing Notes + code review findings |
 | UAT Tester | claude-haiku-4-5 | Pass/fail against all ACs, SRs, architecture compliance, UI fidelity |
 
 Every model is independently overridable via environment variable and supports both Claude and Ollama — see [Configuration](#configuration).
@@ -196,8 +199,9 @@ my-project/
     ├── 5_ui_design.md
     ├── 6_implementation_manifest.md
     ├── 7_ui_manifest.md
-    ├── 8_test_plan.md
-    ├── 9_uat_report.md
+    ├── 8_code_review.md
+    ├── 9_test_plan.md
+    ├── 10_uat_report.md
     └── revision_*/          # Present only if revision cycles ran
 ```
 
@@ -311,9 +315,10 @@ openwally/
 │   │   ├── agents.yaml      # Roles, goals, backstories, model assignments
 │   │   └── tasks.yaml       # Task descriptions, Testing Notes instructions, context chains
 │   └── tools/
-│       ├── artifact_writer.py   # Writes pipeline docs to .harness-docs/
-│       ├── artifact_reader.py   # Reads pipeline docs (used by revision agents)
-│       └── project_file_writer.py  # Writes source files into the generated project
+│       ├── artifact_writer.py      # Writes pipeline docs to .harness-docs/
+│       ├── artifact_reader.py      # Reads pipeline docs (reviewer + revision agents)
+│       ├── project_file_writer.py  # Writes source files into the generated project
+│       └── project_file_reader.py  # Reads source files (code reviewer + QA)
 ├── eval/
 │   ├── pipeline_eval.py     # Inspect AI task definitions
 │   └── scorers.py           # Custom quality scorers

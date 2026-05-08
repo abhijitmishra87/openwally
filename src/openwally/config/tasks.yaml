@@ -226,6 +226,59 @@ implement_ui:
   agent: ui_developer
   context: [design_ui, implement_code]
 
+review_code:
+  description: >
+    You are the last line of defence before QA and UAT. Read the actual source
+    files and verify they match what was designed and specified.
+
+    Step 1 — Orient yourself:
+    Use `read_artifact` to read:
+    - "6_implementation_manifest.md" — list of all backend files written
+    - "7_ui_manifest.md"             — list of all frontend files written
+    - "2_architecture.md"            — API contracts and data models
+    - "3_security.md"                — SR-xxx security requirements
+    - "4_tasks.md"                   — T-xxx definitions of done
+
+    Step 2 — Read the code:
+    Use `read_project_file` to read each source file listed in the manifests.
+    Start with files that implement API endpoints and authentication — those
+    are highest risk. Then read the frontend hooks and pages that call the API.
+
+    Step 3 — Produce a structured review report with these sections:
+
+    ### Architecture Compliance
+    For each API endpoint in the architecture doc: does the implementation match
+    the contract? Check method, path, request shape, response shape, and status
+    codes. Cite the file and line range for any discrepancy.
+
+    ### Security Compliance
+    For each SR-xxx: is it implemented in the code? Quote the relevant code that
+    satisfies it, or state exactly what is missing. Do not accept partial
+    implementations as compliant.
+
+    ### Task Completion
+    For each T-xxx: is the Definition of Done met by the code? Cite evidence.
+
+    ### Code Quality Findings
+    Only real bugs, missing error handling, or logic errors that would cause
+    incorrect behaviour at runtime. No style comments. Each finding must include:
+    - File path and approximate line
+    - What is wrong
+    - What it should do instead
+
+    ### Verdict
+    - APPROVED — implementation matches design and all requirements are met
+    - APPROVED WITH NOTES — minor issues found, safe to proceed, notes must be fixed
+    - BLOCKED — critical issues found that will cause test or UAT failures
+
+    Use `write_artifact` to save the report as "8_code_review.md".
+  expected_output: >
+    A code review report in markdown with all five sections.
+    Every finding cites a specific file and requirement.
+    A clear APPROVED / APPROVED WITH NOTES / BLOCKED verdict.
+  agent: code_reviewer
+  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks]
+
 write_tests:
   description: >
     Write a complete test suite for the implementation. Use the `write_project_file`
@@ -254,14 +307,18 @@ write_tests:
     Use pytest fixtures and parametrize for multiple inputs.
     Use pytest-asyncio for async code.
 
+    Before writing any test, read "8_code_review.md" via `read_artifact`. The Code
+    Reviewer has already identified discrepancies — write tests that specifically
+    target those findings in addition to the standard coverage requirements.
+
     After writing test files, use `write_artifact` to save a test plan document
-    named "8_test_plan.md" with: what is covered, what is explicitly not covered,
-    and a gap analysis referencing which Testing Notes items were deferred and why.
+    named "9_test_plan.md" with: what is covered, which code review findings are
+    covered, and a gap analysis referencing any deferred items and why.
   expected_output: >
     All test files written to tests/ and frontend/src/__tests__/ via write_project_file.
-    Test plan artifact "8_test_plan.md" with full coverage mapping and gap analysis.
+    Test plan artifact "9_test_plan.md" with coverage mapping and gap analysis.
   agent: quality_engineer
-  context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui]
+  context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui, review_code]
 
 uat_report:
   description: >
@@ -286,12 +343,16 @@ uat_report:
     Be honest. Fail anything not fully satisfied. BLOCKED means the evidence
     needed to verify is missing from the artifacts.
 
-    When done, use `write_artifact` to save the document as "9_uat_report.md".
+    Also read "8_code_review.md" via `read_artifact` — the Code Reviewer has already
+    assessed architecture and security compliance. Use their findings as evidence
+    to support your PASS / FAIL ratings rather than re-deriving them from scratch.
+
+    When done, use `write_artifact` to save the document as "10_uat_report.md".
   expected_output: >
     A UAT report covering ACs, SRs, architecture compliance, UI fidelity,
     and task completion. Pass/fail/blocked table per category. GO / NO-GO verdict.
   agent: uat_tester
-  context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui, write_tests]
+  context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui, review_code, write_tests]
 
 # ── Revision cycle tasks (used only when UAT returns NO-GO) ──────────────────
 

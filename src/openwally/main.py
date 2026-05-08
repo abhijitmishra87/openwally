@@ -117,7 +117,7 @@ def run() -> None:
     ).crew().kickoff(inputs={"project_spec": spec, "project_name": project_name})
 
     # ── UAT revision loop ──────────────────────────────────────────────────────
-    uat_report = "9_uat_report.md"
+    uat_report = "10_uat_report.md"
     revision = 0
 
     while not _is_go(docs_dir, uat_report) and revision < args.max_revisions:
