@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: "0 8 * * 1"  # every Monday at 08:00 UTC
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   bandit:
     name: Bandit — Python static analysis
