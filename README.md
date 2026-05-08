@@ -122,6 +122,7 @@ openwally run --spec "Build a URL shortener with per-link analytics and a React 
 | `--mode MODE` | `autonomous` | Human-in-the-loop level — see below |
 | `--review-depth DEPTH` | `standard` | Code review thoroughness — see below |
 | `--max-revisions N` | `2` | Max UAT revision cycles on NO-GO verdict (`0` to disable) |
+| `--no-validate` | off | Skip in-pipeline validation — agents won't run pytest or npm build to self-correct |
 
 ---
 
@@ -147,6 +148,29 @@ openwally run --spec-file idea.md --max-revisions 3
 ```
 
 When a pause occurs, CrewAI prints the agent's output and prompts you for feedback. Type your notes and press Enter — the agent incorporates your feedback before the next agent runs. Press Enter with no input to accept as-is.
+
+---
+
+## In-pipeline validation
+
+By default, the Backend Developer and UI Developer agents validate their own output before finishing:
+
+- **Backend Developer** runs `pytest` after writing source files. If tests fail, it reads the error output, fixes the code, and retries — up to 3 times.
+- **UI Developer** runs `npm run build` after writing frontend files. If the build fails, it fixes TypeScript errors or missing imports and retries — up to 3 times.
+
+This catches broken code before it reaches the Code Reviewer and UAT Tester, reducing revision cycles.
+
+Use `--no-validate` to skip this for faster, cheaper runs:
+
+```bash
+# Skip validation — fastest iteration
+openwally run --spec-file idea.md --no-validate
+
+# Full pipeline with validation (default)
+openwally run --spec-file idea.md
+```
+
+**No LLM cost:** validation uses subprocess calls (`uv run pytest`, `npm run build`) — no extra API calls.
 
 ---
 
@@ -330,6 +354,8 @@ ollama list   # confirm models are ready
 | `eval_requirements_completeness` | All six sections present, ≥3 numbered FRs and ACs |
 | `eval_security_coverage` | STRIDE categories, ≥2 numbered SRs, risk ratings |
 | `eval_uat_verdict` | Pipeline produces a clear GO or NO-GO verdict |
+| `eval_pytest_pass_rate` | Fraction of generated tests that pass when pytest runs |
+| `eval_npm_build` | Generated frontend builds without errors |
 
 ```bash
 inspect eval eval/pipeline_eval.py --model anthropic/claude-sonnet-4-6

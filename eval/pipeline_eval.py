@@ -20,6 +20,8 @@ from eval.scorers import (
     requirements_completeness_scorer,
     security_coverage_scorer,
     uat_verdict_scorer,
+    pytest_pass_rate_scorer,
+    npm_build_scorer,
 )
 
 # ── Sample specs used for evaluation ─────────────────────────────────────────
@@ -63,19 +65,28 @@ def run_pipeline() -> Solver:
     async def _solve(state: TaskState, generate: Generate) -> TaskState:
         spec = state.input_text
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            result = subprocess.run(
-                ["openwally", "run", "--spec", spec],
-                capture_output=True,
-                text=True,
-                cwd=tmpdir,
-                timeout=600,
-            )
-            output_dir = Path(tmpdir) / "output"
-            artifacts: dict[str, str] = {}
-            if output_dir.exists():
-                for f in sorted(output_dir.glob("*.md")):
-                    artifacts[f.name] = f.read_text(encoding="utf-8")
+        # Use mkdtemp (not TemporaryDirectory) so the project persists for scorers.
+        tmpdir = tempfile.mkdtemp()
+        projects_dir = Path(tmpdir) / "projects"
+
+        result = subprocess.run(
+            ["openwally", "run", "--spec", spec, "--output-dir", str(projects_dir)],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+            timeout=600,
+        )
+
+        project_dirs = sorted(projects_dir.iterdir()) if projects_dir.exists() else []
+        project_dir = str(project_dirs[0]) if project_dirs else ""
+        state.metadata["project_dir"] = project_dir
+        state.metadata["tmp_dir"] = tmpdir
+
+        artifacts: dict[str, str] = {}
+        docs_dir = Path(project_dir) / ".harness-docs" if project_dir else None
+        if docs_dir and docs_dir.exists():
+            for f in sorted(docs_dir.glob("*.md")):
+                artifacts[f.name] = f.read_text(encoding="utf-8")
 
         combined = "\n\n---\n\n".join(
             f"## {name}\n\n{content}" for name, content in artifacts.items()
@@ -118,12 +129,34 @@ def eval_uat_verdict() -> Task:
     )
 
 
+@task
+def eval_pytest_pass_rate() -> Task:
+    """What fraction of generated tests pass when pytest runs against the generated project?"""
+    return Task(
+        dataset=_build_dataset(),
+        solver=[run_pipeline()],
+        scorer=pytest_pass_rate_scorer(),
+    )
+
+
+@task
+def eval_npm_build() -> Task:
+    """Does the generated frontend build successfully with npm run build?"""
+    return Task(
+        dataset=_build_dataset(),
+        solver=[run_pipeline()],
+        scorer=npm_build_scorer(),
+    )
+
+
 def run_eval() -> None:
     inspect_eval(
         [
             eval_requirements_completeness(),
             eval_security_coverage(),
             eval_uat_verdict(),
+            eval_pytest_pass_rate(),
+            eval_npm_build(),
         ],
         model="anthropic/claude-sonnet-4-6",
     )

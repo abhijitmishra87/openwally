@@ -175,9 +175,11 @@ implement_code:
     - Any global state or singleton that affects test isolation
 
     Use `write_artifact` to save the manifest as "6_implementation_manifest.md".
+
+    {backend_validation_instructions}
   expected_output: >
     All source files written via write_project_file. deps.txt and README.md present.
-    Manifest artifact with Testing Notes section.
+    Manifest artifact with Testing Notes section and final pytest result.
   agent: developer
   context: [plan_tasks, threat_model]
 
@@ -220,9 +222,11 @@ implement_ui:
     - The two or three breakpoints where layout shifts most significantly
 
     Use `write_artifact` to save the manifest as "7_ui_manifest.md".
+
+    {frontend_validation_instructions}
   expected_output: >
     Complete frontend/ directory written via write_project_file.
-    Manifest artifact "7_ui_manifest.md" with Testing Notes section.
+    Manifest artifact "7_ui_manifest.md" with Testing Notes section and final build result.
   agent: ui_developer
   context: [design_ui, implement_code]
 
@@ -371,9 +375,11 @@ fix_code:
     - Which defects were addressed
     - Which files were changed and why
     - Any defects that could not be fixed and why
+
+    {backend_validation_instructions}
   expected_output: >
     Corrected source files written via write_project_file.
-    Fix summary artifact saved via write_artifact.
+    Fix summary artifact saved via write_artifact. Final pytest result appended.
   agent: developer
 
 fix_ui:
@@ -391,9 +397,11 @@ fix_ui:
     - Which UI defects were addressed
     - Which files were changed and why
     - Any defects that could not be fixed and why
+
+    {frontend_validation_instructions}
   expected_output: >
     Corrected frontend files written via write_project_file.
-    Fix summary artifact saved via write_artifact.
+    Fix summary artifact saved via write_artifact. Final build result appended.
   agent: ui_developer
 
 re_test:

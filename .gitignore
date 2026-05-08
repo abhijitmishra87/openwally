@@ -18,6 +18,9 @@ projects/
 # Inspect AI logs
 .inspect/
 
+# Local notes
+test.md
+
 # OS
 .DS_Store
 Thumbs.db

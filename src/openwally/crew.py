@@ -8,6 +8,8 @@ from openwally.tools.artifact_writer import ArtifactWriterTool
 from openwally.tools.artifact_reader import ArtifactReaderTool
 from openwally.tools.project_file_writer import ProjectFileWriterTool
 from openwally.tools.project_file_reader import ProjectFileReaderTool
+from openwally.tools.pytest_runner import PytestRunnerTool
+from openwally.tools.npm_build_runner import NpmBuildTool
 
 load_dotenv()
 
@@ -33,6 +35,22 @@ MODES = ("autonomous", "milestone", "interactive")
 _MILESTONE_TASKS = {"write_requirements", "design_ui", "write_tests"}
 
 REVIEW_DEPTHS = ("off", "standard", "thorough")
+
+# Injected as {backend_validation_instructions} / {frontend_validation_instructions}
+# into implement_code, implement_ui, fix_code, fix_ui when --no-validate is not set.
+BACKEND_VALIDATION_INSTRUCTIONS: str = (
+    "After saving the manifest, use the `run_pytest` tool to run the test suite.\n"
+    "If tests fail, read the error output carefully, fix the failing source files using\n"
+    "`write_project_file`, and run pytest again. Repeat until all tests pass or after\n"
+    "3 fix attempts. Append the final pytest result to the bottom of your manifest."
+)
+
+FRONTEND_VALIDATION_INSTRUCTIONS: str = (
+    "After saving the manifest, use the `run_npm_build` tool to build the frontend.\n"
+    "If the build fails, fix the TypeScript errors or missing imports using\n"
+    "`write_project_file`, and build again. Repeat until the build succeeds or after\n"
+    "3 fix attempts. Append the final build result to the bottom of your manifest."
+)
 
 # Injected as {review_instructions} into the review_code task description.
 _REVIEW_INSTRUCTIONS: dict[str, str] = {
@@ -95,13 +113,15 @@ class OpenWallyCrew:
     tasks_config = "config/tasks.yaml"
 
     def __init__(self, project_dir: Path, docs_dir: Path,
-                 mode: str = "autonomous", review_depth: str = "standard") -> None:
+                 mode: str = "autonomous", review_depth: str = "standard",
+                 validate: bool = True) -> None:
         assert mode in MODES, f"mode must be one of {MODES}"
         assert review_depth in REVIEW_DEPTHS, f"review_depth must be one of {REVIEW_DEPTHS}"
         self._project_dir = project_dir
         self._docs_dir = docs_dir
         self._mode = mode
         self._review_depth = review_depth
+        self._validate = validate
         super().__init__()
 
     # ── Tool factories ────────────────────────────────────────────────────────
@@ -117,6 +137,12 @@ class OpenWallyCrew:
 
     def _file_reader(self) -> ProjectFileReaderTool:
         return ProjectFileReaderTool(project_dir=str(self._project_dir))
+
+    def _pytest_runner(self) -> PytestRunnerTool:
+        return PytestRunnerTool(project_dir=str(self._project_dir))
+
+    def _npm_builder(self) -> NpmBuildTool:
+        return NpmBuildTool(project_dir=str(self._project_dir))
 
     def _human_input(self, task_name: str) -> bool:
         if self._mode == "interactive":
@@ -154,15 +180,19 @@ class OpenWallyCrew:
 
     @agent
     def developer(self) -> Agent:
+        tools = [self._file_writer(), self._doc_writer()]
+        if self._validate:
+            tools.append(self._pytest_runner())
         return Agent(config=self.agents_config["developer"],
-                     llm=_llm("DEV_MODEL"),
-                     tools=[self._file_writer(), self._doc_writer()], verbose=True)
+                     llm=_llm("DEV_MODEL"), tools=tools, verbose=True)
 
     @agent
     def ui_developer(self) -> Agent:
+        tools = [self._file_writer(), self._doc_writer()]
+        if self._validate:
+            tools.append(self._npm_builder())
         return Agent(config=self.agents_config["ui_developer"],
-                     llm=_llm("UI_DEV_MODEL"),
-                     tools=[self._file_writer(), self._doc_writer()], verbose=True)
+                     llm=_llm("UI_DEV_MODEL"), tools=tools, verbose=True)
 
     @agent
     def code_reviewer(self) -> Agent:
@@ -268,11 +298,13 @@ class RevisionCrew:
     tasks_config = "config/tasks.yaml"
 
     def __init__(self, project_dir: Path, docs_dir: Path,
-                 revision_num: int, mode: str = "autonomous") -> None:
+                 revision_num: int, mode: str = "autonomous",
+                 validate: bool = True) -> None:
         self._project_dir = project_dir
         self._docs_dir = docs_dir
         self._revision_num = revision_num
         self._mode = mode
+        self._validate = validate
         super().__init__()
 
     def _doc_writer(self) -> ArtifactWriterTool:
@@ -287,6 +319,12 @@ class RevisionCrew:
     def _file_reader(self) -> ProjectFileReaderTool:
         return ProjectFileReaderTool(project_dir=str(self._project_dir))
 
+    def _pytest_runner(self) -> PytestRunnerTool:
+        return PytestRunnerTool(project_dir=str(self._project_dir))
+
+    def _npm_builder(self) -> NpmBuildTool:
+        return NpmBuildTool(project_dir=str(self._project_dir))
+
     def _human_input(self) -> bool:
         return self._mode == "interactive"
 
@@ -294,19 +332,21 @@ class RevisionCrew:
 
     @agent
     def developer(self) -> Agent:
+        tools = [self._file_writer(), self._file_reader(),
+                 self._doc_writer(), self._doc_reader()]
+        if self._validate:
+            tools.append(self._pytest_runner())
         return Agent(config=self.agents_config["developer"],
-                     llm=_llm("DEV_MODEL"),
-                     tools=[self._file_writer(), self._file_reader(),
-                            self._doc_writer(), self._doc_reader()],
-                     verbose=True)
+                     llm=_llm("DEV_MODEL"), tools=tools, verbose=True)
 
     @agent
     def ui_developer(self) -> Agent:
+        tools = [self._file_writer(), self._file_reader(),
+                 self._doc_writer(), self._doc_reader()]
+        if self._validate:
+            tools.append(self._npm_builder())
         return Agent(config=self.agents_config["ui_developer"],
-                     llm=_llm("UI_DEV_MODEL"),
-                     tools=[self._file_writer(), self._file_reader(),
-                            self._doc_writer(), self._doc_reader()],
-                     verbose=True)
+                     llm=_llm("UI_DEV_MODEL"), tools=tools, verbose=True)
 
     @agent
     def quality_engineer(self) -> Agent:

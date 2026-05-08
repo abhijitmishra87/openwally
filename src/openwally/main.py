@@ -11,7 +11,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
 
-from openwally.crew import MODES, REVIEW_DEPTHS, _REVIEW_INSTRUCTIONS, OpenWallyCrew, RevisionCrew
+from openwally.crew import (
+    MODES, REVIEW_DEPTHS, _REVIEW_INSTRUCTIONS,
+    BACKEND_VALIDATION_INSTRUCTIONS, FRONTEND_VALIDATION_INSTRUCTIONS,
+    OpenWallyCrew, RevisionCrew,
+)
 from openwally.scaffolding import scaffold
 
 load_dotenv()
@@ -54,6 +58,12 @@ def _parse_args() -> argparse.Namespace:
                          "off — skip code review entirely; "
                          "standard — risk-prioritised (auth, endpoints, models first) (default); "
                          "thorough — reads every source file exhaustively"
+                     ))
+    run.add_argument("--no-validate", action="store_true", default=False,
+                     dest="no_validate",
+                     help=(
+                         "Skip in-pipeline validation — agents won't run pytest or npm build "
+                         "to self-correct. Faster and cheaper; useful for quick iteration."
                      ))
 
     return parser.parse_args()
@@ -112,22 +122,30 @@ def run() -> None:
     console.print(Panel(spec, title="[bold cyan]Project Spec[/bold cyan]", border_style="cyan"))
     console.print(f"[bold]Project:[/bold]       {project_name}")
     console.print(f"[bold]Output:[/bold]        {project_dir}")
+    validate = not args.no_validate
     console.print(f"[bold]Mode:[/bold]          [cyan]{args.mode}[/cyan] — {_mode_description(args.mode)}")
     console.print(f"[bold]Review depth:[/bold]  [cyan]{args.review_depth}[/cyan]")
+    console.print(f"[bold]Validation:[/bold]    [cyan]{'on' if validate else 'off'}[/cyan]"
+                  + ("" if validate else " — agents will not self-correct via pytest / npm build"))
     console.print(f"[bold]Max revisions:[/bold] {args.max_revisions}\n")
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
     console.print(Rule("[bold]Pipeline — Pass 1[/bold]"))
     review_instructions = _REVIEW_INSTRUCTIONS.get(args.review_depth, "")
+    backend_val = BACKEND_VALIDATION_INSTRUCTIONS if validate else ""
+    frontend_val = FRONTEND_VALIDATION_INSTRUCTIONS if validate else ""
     OpenWallyCrew(
         project_dir=project_dir,
         docs_dir=docs_dir,
         mode=args.mode,
         review_depth=args.review_depth,
+        validate=validate,
     ).crew().kickoff(inputs={
         "project_spec": spec,
         "project_name": project_name,
         "review_instructions": review_instructions,
+        "backend_validation_instructions": backend_val,
+        "frontend_validation_instructions": frontend_val,
     })
 
     # ── UAT revision loop ──────────────────────────────────────────────────────
@@ -149,10 +167,13 @@ def run() -> None:
             docs_dir=docs_dir,
             revision_num=revision,
             mode=args.mode,
+            validate=validate,
         ).crew().kickoff(inputs={
             "project_spec": spec,
             "project_name": project_name,
             "revision_num": str(revision),
+            "backend_validation_instructions": backend_val,
+            "frontend_validation_instructions": frontend_val,
         })
 
         uat_report = f"revision_{revision}_uat_report.md"
