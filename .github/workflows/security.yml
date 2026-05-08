@@ -45,16 +45,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install pip-audit
-        run: pip install pip-audit
+      - name: Install dependencies and pip-audit
+        run: pip install pip-audit -e .
 
       - name: Audit dependencies
-        run: pip-audit --requirement <(pip install -e . --dry-run 2>&1 | grep "Would install" | tr ' ' '\n' | grep '==' || echo "") || pip-audit -r <(pip show openwally 2>/dev/null | grep Requires | sed 's/Requires: //' | tr ', ' '\n' | grep -v '^$' || echo "setuptools") --skip-editable
-
-      - name: Audit pyproject.toml deps directly
-        run: |
-          pip install -e .
-          pip-audit
+        run: pip-audit
 
   semgrep:
     name: Semgrep — SAST
