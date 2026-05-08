@@ -1,0 +1,217 @@
+write_requirements:
+  description: >
+    You have been given the following project idea:
+
+    ---
+    {project_spec}
+    ---
+
+    Produce a requirements document with these sections:
+    1. Executive Summary (2-3 sentences)
+    2. Goals & Non-Goals
+    3. Functional Requirements (numbered, unambiguous)
+    4. Non-Functional Requirements (performance, scalability, security)
+    5. Acceptance Criteria (testable, one per requirement)
+    6. Open Questions & Risks
+
+    Use markdown. Be specific — no vague verbs like "handle" or "support".
+    When done, use the `write_artifact` tool to save the document as "1_requirements.md".
+  expected_output: >
+    A complete requirements document in markdown with all six sections populated.
+    Functional requirements must be numbered FR-001, FR-002, etc.
+    Acceptance criteria must reference their requirement (AC-FR-001, etc.).
+  agent: program_manager
+
+design_system:
+  description: >
+    Using the requirements document produced by the Program Manager, design the
+    system architecture. Produce a document with:
+    1. Component Diagram (ASCII or Mermaid)
+    2. Component Responsibilities
+    3. API Contracts (endpoints, request/response shapes)
+    4. Data Models (as Python dataclasses or Pydantic models)
+    5. Technology Choices with justification
+    6. Assumptions & Constraints
+
+    Every component and API must map back to a specific FR in the requirements.
+    When done, use `write_artifact` to save the document as "2_architecture.md".
+  expected_output: >
+    A system design document in markdown including at minimum one component diagram,
+    all API contracts as code blocks, and data models as Python code.
+  agent: software_architect
+  context: [write_requirements]
+
+threat_model:
+  description: >
+    Review the system design and produce a security threat model and requirements
+    addendum. Use the STRIDE methodology. Cover:
+    1. Trust Boundaries
+    2. Threat Enumeration (STRIDE per component)
+    3. Risk Rating (High/Medium/Low per threat)
+    4. Security Requirements (SR-001, SR-002, ...) the developer must implement
+    5. Compliance Notes (e.g. OWASP Top 10 applicability)
+
+    Flag any design decisions that introduce unacceptable risk.
+    When done, use `write_artifact` to save the document as "3_security.md".
+  expected_output: >
+    A security addendum in markdown with STRIDE threat table, risk ratings,
+    and numbered security requirements the developer must satisfy.
+  agent: security_architect
+  context: [design_system]
+
+plan_tasks:
+  description: >
+    Using the architecture doc and security addendum, produce an ordered development
+    task list. Each task must have:
+    - Task ID (T-001, T-002, ...)
+    - Title (imperative, ≤10 words)
+    - Description (what to build, not how)
+    - Definition of Done (observable, testable)
+    - Dependencies (other task IDs, or "none")
+    - Estimated complexity (S/M/L)
+
+    Tasks should be sequenced so no task is blocked until its dependency completes.
+    Architecture and security requirements must each be covered by at least one task.
+    When done, use `write_artifact` to save the document as "4_tasks.md".
+  expected_output: >
+    A task list in markdown with all tasks in the specified format.
+    Must include a summary table at the top.
+  agent: engineering_manager
+  context: [design_system, threat_model]
+
+design_ui:
+  description: >
+    Using the requirements document and system architecture, produce a complete UI
+    design specification for the frontend. The spec must cover:
+
+    1. Information Architecture — page list with route paths and purpose
+    2. Component Hierarchy — Mermaid tree of every reusable component
+    3. Page Wireframes — ASCII wireframe for each major page/view
+    4. Design Tokens — color palette (primary, secondary, accent, destructive,
+       background, foreground, muted, border) in HSL for both light and dark mode,
+       font stack, border-radius scale, spacing scale
+    5. shadcn/ui Component Mapping — for each UI element, specify which shadcn/ui
+       primitive to use (Button, Card, Dialog, Table, Form, Input, etc.)
+    6. State & Interaction Patterns — loading states, empty states, error states,
+       optimistic updates where applicable
+    7. API Integration Points — which backend endpoints each page/component calls,
+       request/response shapes the frontend needs to handle
+
+    Ground every decision in the functional requirements. Note which AC-FR-xxx
+    each page or component satisfies.
+    When done, use `write_artifact` to save the spec as "5_ui_design.md".
+  expected_output: >
+    A UI design spec in markdown with all seven sections populated.
+    Must include at least one Mermaid component tree, ASCII wireframes for all
+    major pages, and a complete design token table.
+  agent: ui_designer
+  context: [write_requirements, design_system]
+
+implement_code:
+  description: >
+    Implement every task in the task list as real, runnable Python source files.
+    Use the `write_project_file` tool to write each file — one tool call per file.
+
+    Required files you MUST produce:
+    1. All Python source modules under src/{project_name}/
+    2. A top-level deps.txt listing every third-party pip package the code needs,
+       one package name per line (e.g. "fastapi", "httpx", "pydantic"). Do NOT
+       include the Python standard library. Do NOT include version pins — package
+       names only.
+    3. A README.md at the project root with setup and usage instructions.
+
+    Rules:
+    - Complete files only — no ellipsis, no "# TODO", no placeholders.
+    - Full type hints throughout.
+    - Satisfy every SR-xxx security requirement from the security addendum.
+    - Follow the architecture decisions exactly.
+
+    After writing all files, use `write_artifact` to save a summary manifest
+    named "5_implementation_manifest.md" listing every file path you wrote.
+  expected_output: >
+    All source files written to the project directory via write_project_file.
+    A deps.txt at the project root. A README.md at the project root.
+    A manifest artifact documenting every written file path.
+  agent: developer
+  context: [plan_tasks, threat_model]
+
+implement_ui:
+  description: >
+    Implement the UI design spec as a complete React + TypeScript + Tailwind CSS
+    frontend. Use the `write_project_file` tool to write every file — one call per file.
+    All files go under frontend/.
+
+    Required structure:
+    - frontend/package.json          (all npm deps, scripts: dev, build, preview, lint)
+    - frontend/tsconfig.json
+    - frontend/vite.config.ts        (use Vite + React plugin)
+    - frontend/tailwind.config.ts    (extend with design tokens from the UI spec)
+    - frontend/postcss.config.js
+    - frontend/index.html
+    - frontend/src/main.tsx
+    - frontend/src/App.tsx           (router setup with react-router-dom)
+    - frontend/src/lib/utils.ts      (cn() helper for Tailwind class merging)
+    - frontend/src/components/ui/    (shadcn/ui primitive wrappers)
+    - frontend/src/components/       (feature components)
+    - frontend/src/pages/            (one file per page/route)
+    - frontend/src/hooks/            (custom React hooks for API calls)
+    - frontend/src/types/api.ts      (TypeScript types matching backend API contracts)
+
+    Rules:
+    - Complete files only — no placeholders, no "// TODO".
+    - Strict TypeScript throughout — no `any`, no implicit types.
+    - Implement dark mode via Tailwind's `dark:` variant + a ThemeProvider.
+    - Every interactive element must have keyboard navigation and ARIA labels.
+    - Use fetch or axios in hooks — do not call APIs directly from components.
+    - Match the design tokens from the UI spec exactly.
+    - Connect to the backend API base URL via an env var (VITE_API_BASE_URL).
+
+    After writing all files, use `write_artifact` to save a manifest as
+    "7_ui_manifest.md" listing every file path written.
+  expected_output: >
+    A complete frontend/ directory written via write_project_file.
+    Includes package.json, tsconfig, Vite config, Tailwind config,
+    all components, pages, hooks, and types.
+    A manifest artifact "7_ui_manifest.md".
+  agent: ui_developer
+  context: [design_ui, implement_code]
+
+write_tests:
+  description: >
+    Write a complete pytest test suite for the implementation. Use the
+    `write_project_file` tool to write each test file under tests/.
+
+    Produce:
+    1. tests/__init__.py (empty)
+    2. At least one test module per source module (tests/test_<module>.py)
+    3. A conftest.py with shared fixtures
+
+    Tests must cover: happy paths, edge cases, error paths, and at minimum
+    two security requirement validations from the SR-xxx list.
+    Use pytest parametrize where testing multiple inputs.
+
+    After writing test files, use `write_artifact` to save a test plan document
+    named "6_test_plan.md" covering what is tested and a gap analysis.
+  expected_output: >
+    All test files written to tests/ via write_project_file.
+    A test plan artifact "6_test_plan.md" with gap analysis.
+  agent: quality_engineer
+  context: [implement_code, implement_ui, write_requirements, threat_model]
+
+uat_report:
+  description: >
+    Act as the end user. Review all prior artifacts and produce a UAT report:
+    1. For each Acceptance Criterion (AC-FR-xxx) from the requirements: PASS / FAIL / BLOCKED
+    2. For each Security Requirement (SR-xxx): PASS / FAIL / BLOCKED
+    3. Summary table with overall metrics
+    4. Critical defects (must-fix before release)
+    5. Minor defects (nice-to-fix)
+    6. Final verdict: GO / NO-GO with a one-paragraph justification
+
+    Be honest. Fail anything that is not fully satisfied by the implementation.
+    When done, use `write_artifact` to save the document as "7_uat_report.md".
+  expected_output: >
+    A UAT report in markdown with pass/fail table for all ACs and SRs,
+    defect list, and a clear GO / NO-GO verdict.
+  agent: uat_tester
+  context: [write_requirements, implement_code, implement_ui, write_tests]

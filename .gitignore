@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Secrets — never commit these
+.env
+
+# Generated projects (large, contain their own repos)
+projects/
+
+# Inspect AI logs
+.inspect/
+
+# OS
+.DS_Store
+Thumbs.db
