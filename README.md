@@ -184,12 +184,13 @@ npm run dev
 
 ## Configuration
 
-All model assignments can be overridden in `.env`:
+All model assignments can be overridden in `.env`. Every role independently supports either a **Claude model** (via Anthropic API) or a **local Ollama model** — mix and match as needed.
+
+### All Claude (default — highest quality)
 
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Per-role model overrides — defaults shown
 PM_MODEL=claude-opus-4-7
 ARCHITECT_MODEL=claude-opus-4-7
 SECURITY_MODEL=claude-opus-4-7
@@ -199,12 +200,53 @@ UI_DEV_MODEL=claude-opus-4-7
 DEV_MODEL=claude-sonnet-4-6
 QA_MODEL=claude-sonnet-4-6
 UAT_MODEL=claude-haiku-4-5-20251001
-
-# Output directory for generated projects
-OUTPUT_DIR=./projects
 ```
 
-Assigning different models to different roles is intentional — it reduces single-model bias and lets high-complexity roles (architect, UI) use a more capable model while keeping cost down for simpler tasks.
+### Hybrid — Ollama for lighter roles (cost saving)
+
+Keep Claude for the high-reasoning roles (architecture, security, UI design) and use free local models for simpler pass/fail tasks:
+
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-...
+OLLAMA_BASE_URL=http://localhost:11434   # default, can omit
+
+# everything else stays on Claude defaults
+QA_MODEL=ollama/llama3.2
+UAT_MODEL=ollama/mistral
+```
+
+### Fully local — no API key required
+
+Run the entire pipeline offline. Output quality will be lower, but it costs nothing and is fully private:
+
+```dotenv
+OLLAMA_BASE_URL=http://localhost:11434
+
+PM_MODEL=ollama/llama3.2
+ARCHITECT_MODEL=ollama/llama3.2
+SECURITY_MODEL=ollama/mistral
+EM_MODEL=ollama/llama3.2
+UI_DESIGNER_MODEL=ollama/llama3.2
+UI_DEV_MODEL=ollama/llama3.2
+DEV_MODEL=ollama/mistral
+QA_MODEL=ollama/llama3.2
+UAT_MODEL=ollama/llama3.2
+```
+
+### Ollama setup
+
+1. Install Ollama: [ollama.com](https://ollama.com)
+2. Pull the models you want to use:
+   ```bash
+   ollama pull llama3.2
+   ollama pull mistral
+   ```
+3. Ollama runs automatically in the background once installed. Confirm it's up:
+   ```bash
+   ollama list
+   ```
+
+Assigning different models to different roles is intentional — it reduces single-model bias and lets high-complexity roles use more capable models while keeping cost down for simpler tasks.
 
 ---
 

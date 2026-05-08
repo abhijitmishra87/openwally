@@ -23,8 +23,17 @@ _MODELS: dict[str, str] = {
 
 
 def _llm(model_key: str) -> LLM:
+    model = _MODELS[model_key]
+    if model.startswith("ollama/"):
+        return LLM(
+            model=model,
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        )
+    # accept explicit provider prefix (e.g. "anthropic/claude-...") or bare model name
+    if "/" not in model:
+        model = f"anthropic/{model}"
     return LLM(
-        model=f"anthropic/{_MODELS[model_key]}",
+        model=model,
         api_key=os.getenv("ANTHROPIC_API_KEY"),
     )
 
