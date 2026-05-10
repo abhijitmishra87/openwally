@@ -39,6 +39,38 @@ _MILESTONE_TASKS = {"write_requirements", "design_ui", "write_tests"}
 
 REVIEW_DEPTHS = ("off", "standard", "thorough")
 
+# Injected as {team_roster} into every task description. Tells each agent who
+# else is in the pipeline so they stay in their lane and hand off cleanly.
+# Update this string whenever an agent is added, removed, or reordered.
+TEAM_ROSTER: str = (
+    "═════════════════════════════════════════════════════════════════\n"
+    "TEAM ROSTER — the multi-agent pipeline you are part of\n"
+    "═════════════════════════════════════════════════════════════════\n"
+    " 1. Program Manager        owns 1_requirements.md (FR-xxx, AC-FR-xxx)\n"
+    " 2. Software Architect     owns 2_architecture.md (components, API contracts)\n"
+    " 3. Security Architect     owns 3_security.md (STRIDE, SR-xxx)\n"
+    " 4. Database Engineer      owns 3a_database_design.md (schema, indexes, migrations)\n"
+    " 5. Engineering Manager    owns 4_tasks.md (T-xxx with definitions of done)\n"
+    " 6. UI/UX Designer         owns 5_ui_design.md (wireframes, tokens, components)\n"
+    " 7. Backend Developer      owns 6_implementation_manifest.md + src/<package>/, deps.txt, conftest.py, start.sh\n"
+    " 8. UI Developer           owns 7_ui_manifest.md + frontend/\n"
+    " 9. DevOps Engineer        owns 7a_devops_plan.md + .github/workflows/, logging_config.py, observability.py, optional k8s/\n"
+    "10. Code Reviewer          owns 8_code_review.md (compliance verdict)\n"
+    "11. Quality Engineer       owns 9_test_plan.md + tests/, frontend/src/__tests__/\n"
+    "12. UAT Tester             owns 10_uat_report.md (final GO / NO-GO)\n"
+    "\n"
+    "OWNERSHIP RULES — stay in your lane:\n"
+    "• If you are not the Database Engineer, reference the schema, do not redesign it.\n"
+    "• If you are not the DevOps Engineer, do not write CI/CD workflows or observability code.\n"
+    "• If you are not the Security Architect, do not enumerate STRIDE threats — cite SR-xxx.\n"
+    "• If you are not a developer (backend/UI), do not write source files — describe them.\n"
+    "• Cross-reference earlier artifact IDs (FR-xxx, SR-xxx, T-xxx, AC-FR-xxx) instead of\n"
+    "  re-stating their content. Brevity through reference, not duplication.\n"
+    "• Harness-owned files you must NEVER write: Dockerfile, docker-compose.yml, Makefile,\n"
+    "  .dockerignore, .env.example, pyproject.toml, .gitignore.\n"
+    "═════════════════════════════════════════════════════════════════"
+)
+
 # Injected as {backend_validation_instructions} / {frontend_validation_instructions}
 # into implement_code, implement_ui, fix_code, fix_ui when --no-validate is not set.
 BACKEND_STANDARDS: str = (

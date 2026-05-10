@@ -17,6 +17,7 @@ from openwally.crew import (
     MODES, REVIEW_DEPTHS, _REVIEW_INSTRUCTIONS,
     BACKEND_VALIDATION_INSTRUCTIONS, FRONTEND_VALIDATION_INSTRUCTIONS,
     BACKEND_STANDARDS, FRONTEND_STANDARDS, REVIEWER_STANDARDS,
+    TEAM_ROSTER,
     OpenWallyCrew, RevisionCrew,
 )
 from openwally.scaffolding import scaffold
@@ -168,6 +169,7 @@ def run() -> None:
     base_inputs = {
         "project_spec": spec,
         "project_name": project_name,
+        "team_roster": TEAM_ROSTER,
         "review_instructions": review_instructions,
         "backend_validation_instructions": backend_val,
         "frontend_validation_instructions": frontend_val,
