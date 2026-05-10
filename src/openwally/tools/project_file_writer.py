@@ -15,7 +15,14 @@ class ProjectFileWriterTool(BaseTool):
     )
     project_dir: str = ""
 
-    def _run(self, relative_path: str, content: str) -> str:
+    def _run(self, relative_path: str, content: str = "") -> str:
+        if not content:
+            return (
+                f"Error: 'content' argument is missing. "
+                f"You must call this tool with BOTH arguments: "
+                f"relative_path='{relative_path}' AND content='<complete file content>'. "
+                f"Please call the tool again including the full file content."
+            )
         target = Path(self.project_dir) / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")

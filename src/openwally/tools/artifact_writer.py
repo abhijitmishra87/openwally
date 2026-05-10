@@ -13,7 +13,14 @@ class ArtifactWriterTool(BaseTool):
     )
     output_dir: str = "./output"
 
-    def _run(self, file_name: str, content: str) -> str:
+    def _run(self, file_name: str, content: str = "") -> str:
+        if not content:
+            return (
+                f"Error: 'content' argument is missing. "
+                f"You must call this tool with BOTH arguments: "
+                f"file_name='{file_name}' AND content='<your complete document text>'. "
+                f"Please call the tool again including the full document as the content argument."
+            )
         target = Path(self.output_dir) / file_name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
