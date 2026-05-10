@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
-from crewai.tasks.task_output import TaskOutput
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -147,7 +146,7 @@ _REVIEW_INSTRUCTIONS: dict[str, str] = {
 }
 
 
-def _log_task_completion(output: TaskOutput) -> None:
+def _log_task_completion(output) -> None:
     agent_name = getattr(output, "agent", "unknown agent")
     summary = (output.summary or output.raw or "")[:120].replace("\n", " ")
     logger.info("Agent handover — {} finished | summary: {}…", agent_name, summary)
