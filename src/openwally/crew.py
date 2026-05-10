@@ -23,6 +23,7 @@ _MODELS: dict[str, str] = {
     "UI_DESIGNER_MODEL":    os.getenv("UI_DESIGNER_MODEL",    "claude-opus-4-7"),
     "UI_DEV_MODEL":         os.getenv("UI_DEV_MODEL",         "claude-opus-4-7"),
     "DEV_MODEL":            os.getenv("DEV_MODEL",            "claude-sonnet-4-6"),
+    "DEVOPS_MODEL":         os.getenv("DEVOPS_MODEL",         "claude-sonnet-4-6"),
     "CODE_REVIEWER_MODEL":  os.getenv("CODE_REVIEWER_MODEL",  "claude-opus-4-7"),
     "QA_MODEL":             os.getenv("QA_MODEL",             "claude-sonnet-4-6"),
     "UAT_MODEL":            os.getenv("UAT_MODEL",            "claude-haiku-4-5-20251001"),
@@ -290,6 +291,14 @@ class OpenWallyCrew:
                      llm=_llm("UI_DEV_MODEL"), tools=tools, verbose=True)
 
     @agent
+    def devops_engineer(self) -> Agent:
+        return Agent(config=self.agents_config["devops_engineer"],
+                     llm=_llm("DEVOPS_MODEL"),
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_reader(), self._version_lookup()],
+                     verbose=True)
+
+    @agent
     def code_reviewer(self) -> Agent:
         return Agent(config=self.agents_config["code_reviewer"],
                      llm=_llm("CODE_REVIEWER_MODEL"),
@@ -360,6 +369,12 @@ class OpenWallyCrew:
                     output_file=str(self._docs_dir / "7_ui_manifest.md"))
 
     @task
+    def plan_deploy(self) -> Task:
+        return Task(config=self.tasks_config["plan_deploy"],
+                    human_input=self._human_input("plan_deploy"),
+                    output_file=str(self._docs_dir / "7a_devops_plan.md"))
+
+    @task
     def review_code(self) -> Task:
         return Task(config=self.tasks_config["review_code"],
                     human_input=self._human_input("review_code"),
@@ -390,6 +405,7 @@ class OpenWallyCrew:
             self.design_ui(),
             self.implement_code(),
             self.implement_ui(),
+            self.plan_deploy(),
         ]
         if self._review_depth != "off":
             tasks.append(self.review_code())

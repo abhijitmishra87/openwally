@@ -316,6 +316,80 @@ implement_ui:
   agent: ui_developer
   context: [design_ui, implement_code]
 
+plan_deploy:
+  description: >
+    The backend and frontend are implemented. Make this project deployable,
+    observable, and continuously integrated. Read the architecture, security,
+    database design, and both implementation manifests to ground your choices.
+
+    Step 1 — Pick the deployment target.
+    Choose the SIMPLEST target that meets the requirements. Default to Docker
+    Compose (already scaffolded by the harness). Use Kubernetes only if the
+    architecture explicitly calls for horizontal scale, multi-tenant isolation,
+    or rolling deploys. State the choice and a one-paragraph justification.
+
+    Step 2 — Write the CI/CD workflows.
+    Use `write_project_file` to create:
+
+      .github/workflows/ci.yml — runs on push and PR:
+        - Python: setup-python @ 3.12, `pip install -r deps.txt`, run pytest
+        - Node (if frontend/ exists): setup-node @ 24, `npm ci`, `npm run build`
+        - Use the latest stable action versions — call `lookup_latest_version`
+          with ecosystem='runtime' for python/nodejs to confirm.
+
+      .github/workflows/docker.yml — runs on push to main:
+        - Build the backend image (and frontend image if present)
+        - Use docker/build-push-action; do NOT push unless DOCKER_REGISTRY secret
+          is configured (gate the push step on `secrets.DOCKER_REGISTRY != ''`).
+
+    Do NOT write Dockerfile, docker-compose.yml, Makefile, .dockerignore, or
+    .env.example — these are owned by the harness scaffolding step and will be
+    overwritten if you produce them.
+
+    Step 3 — Wire observability.
+    Use `write_project_file` to update or add:
+
+      src/{project_name}/logging_config.py — a single-source-of-truth logging
+      setup that emits structured JSON to stdout with fields: timestamp, level,
+      logger, message, and a request_id from contextvars when available. Every
+      module's `logger = logging.getLogger(__name__)` should pick this up.
+
+      src/{project_name}/observability.py — exposes Prometheus metrics on /metrics
+      (use prometheus_client). Define at minimum: a counter for HTTP requests
+      labelled by route and status, a histogram for request duration, and a
+      gauge for in-flight requests. Wire the middleware that records these into
+      the existing app entry point.
+
+    Add `prometheus_client` and `python-json-logger` to deps.txt if they are not
+    already there.
+
+    Step 4 — Optional: Kubernetes manifests.
+    If you chose Kubernetes in Step 1, write `k8s/deployment.yaml`,
+    `k8s/service.yaml`, and `k8s/configmap.yaml` covering both backend and
+    frontend, with liveness probes hitting /health and readiness probes hitting
+    /health (or /ready if the app distinguishes them). Otherwise skip this step
+    and explicitly state "Kubernetes manifests not generated — Docker Compose
+    deployment chosen" in the document.
+
+    Your final response must be the complete deploy/ops plan document with these
+    sections: Deployment Target, CI/CD Pipelines, Observability Stack, Secrets &
+    Config Management, Rollback Strategy, and (if applicable) Kubernetes Layout.
+
+    After the main document, append a `## Testing Notes` section containing:
+    - Which CI workflow assertions tests must rely on (e.g. "ci.yml fails when
+      pytest exit code is non-zero")
+    - How to verify /metrics returns Prometheus-format output
+    - How to verify structured JSON logs are emitted with request_id when a
+      request handler runs
+  expected_output: >
+    A deploy/ops plan with deployment target choice, CI/CD pipeline summary,
+    observability stack, secrets management approach, rollback strategy, and
+    optional Kubernetes layout. Concrete files written under .github/workflows/,
+    src/<package>/logging_config.py, src/<package>/observability.py, and
+    optionally k8s/.
+  agent: devops_engineer
+  context: [design_system, threat_model, design_database, implement_code, implement_ui]
+
 review_code:
   description: >
     You are the last line of defence before QA and UAT. Read the actual source
@@ -367,7 +441,7 @@ review_code:
     Every finding cites a specific file and requirement.
     A clear APPROVED / APPROVED WITH NOTES / BLOCKED verdict.
   agent: code_reviewer
-  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks, design_database]
+  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks, design_database, plan_deploy]
 
 write_tests:
   description: >
@@ -408,7 +482,7 @@ write_tests:
     All test files written to tests/ and frontend/src/__tests__/ via write_project_file.
     Test plan artifact "9_test_plan.md" with coverage mapping and gap analysis.
   agent: quality_engineer
-  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, review_code]
+  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, review_code]
 
 uat_report:
   description: >
