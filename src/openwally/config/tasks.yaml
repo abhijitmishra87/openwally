@@ -22,7 +22,7 @@ write_requirements:
     - Data preconditions that must exist before tests can run
     - Any AC that is difficult to automate and why
 
-    When done, use the `write_artifact` tool to save the document as "1_requirements.md".
+    Your final response must be the complete requirements document.
   expected_output: >
     A complete requirements document with all six sections plus a Testing Notes section.
     Functional requirements numbered FR-001, FR-002, etc.
@@ -49,7 +49,7 @@ design_system:
     - Component interaction scenarios that cross service boundaries
     - Any async behaviour (queues, background jobs) and how to assert their side effects
 
-    When done, use `write_artifact` to save the document as "2_architecture.md".
+    Your final response must be the complete system design document.
   expected_output: >
     A system design document with component diagram, API contracts, data models,
     and a Testing Notes section with integration test scenarios.
@@ -76,7 +76,7 @@ threat_model:
     - Negative test cases: inputs that MUST be rejected and the expected error
     - Any security behaviour that requires a specific test order or state setup
 
-    When done, use `write_artifact` to save the document as "3_security.md".
+    Your final response must be the complete security threat model.
   expected_output: >
     A security addendum with STRIDE threat table, risk ratings, numbered SR-xxx
     requirements, and a Testing Notes section with one concrete test per SR.
@@ -103,7 +103,7 @@ plan_tasks:
     - Any task whose completion can only be verified manually, and why
     - Task ordering dependencies that affect test execution order
 
-    When done, use `write_artifact` to save the document as "4_tasks.md".
+    Your final response must be the complete development task list.
   expected_output: >
     A task list with summary table, all tasks in specified format,
     and a Testing Notes section mapping each T-xxx to a testable assertion.
@@ -139,7 +139,7 @@ design_ui:
     - Dark mode: which tokens change and which components to spot-check
     - Any animation or transition that affects test timing (e.g. requires a wait)
 
-    When done, use `write_artifact` to save the spec as "5_ui_design.md".
+    Your final response must be the complete UI design specification.
   expected_output: >
     A UI design spec with all seven sections, wireframes, design tokens,
     and a Testing Notes section with interaction states and form validation rules.
@@ -176,7 +176,7 @@ implement_code:
 
     {backend_standards}
 
-    Use `write_artifact` to save the manifest as "6_implementation_manifest.md".
+    Your final response must be the complete implementation manifest.
 
     {backend_validation_instructions}
   expected_output: >
@@ -225,7 +225,7 @@ implement_ui:
 
     {frontend_standards}
 
-    Use `write_artifact` to save the manifest as "7_ui_manifest.md".
+    Your final response must be the complete UI implementation manifest.
 
     {frontend_validation_instructions}
   expected_output: >
@@ -279,7 +279,7 @@ review_code:
     - APPROVED WITH NOTES — minor issues found, safe to proceed, notes must be fixed
     - BLOCKED — critical issues found that will cause test or UAT failures
 
-    Use `write_artifact` to save the report as "8_code_review.md".
+    Your final response must be the complete code review report.
   expected_output: >
     A code review report in markdown with all five sections.
     Every finding cites a specific file and requirement.
@@ -319,9 +319,9 @@ write_tests:
     Reviewer has already identified discrepancies — write tests that specifically
     target those findings in addition to the standard coverage requirements.
 
-    After writing test files, use `write_artifact` to save a test plan document
-    named "9_test_plan.md" with: what is covered, which code review findings are
-    covered, and a gap analysis referencing any deferred items and why.
+    After writing all test files, your final response must be the test plan document
+    containing: what is covered, which code review findings are covered,
+    and a gap analysis referencing any deferred items and why.
   expected_output: >
     All test files written to tests/ and frontend/src/__tests__/ via write_project_file.
     Test plan artifact "9_test_plan.md" with coverage mapping and gap analysis.
@@ -355,7 +355,7 @@ uat_report:
     assessed architecture and security compliance. Use their findings as evidence
     to support your PASS / FAIL ratings rather than re-deriving them from scratch.
 
-    When done, use `write_artifact` to save the document as "10_uat_report.md".
+    Your final response must be the complete UAT report.
   expected_output: >
     A UAT report covering ACs, SRs, architecture compliance, UI fidelity,
     and task completion. Pass/fail/blocked table per category. GO / NO-GO verdict.
@@ -376,8 +376,7 @@ fix_code:
     Use `write_project_file` to overwrite each affected file with the complete
     corrected version. One tool call per file.
 
-    After fixing, use `write_artifact` to save a fix summary as
-    "revision_{revision_num}_backend_fixes.md" listing:
+    Your final response must be the fix summary listing:
     - Which defects were addressed
     - Which files were changed and why
     - Any defects that could not be fixed and why
@@ -398,8 +397,7 @@ fix_ui:
     Use `write_project_file` to overwrite each affected frontend file with the
     complete corrected version. One tool call per file.
 
-    After fixing, use `write_artifact` to save a fix summary as
-    "revision_{revision_num}_ui_fixes.md" listing:
+    Your final response must be the fix summary listing:
     - Which UI defects were addressed
     - Which files were changed and why
     - Any defects that could not be fixed and why
@@ -419,8 +417,7 @@ re_test:
     Update or add tests specifically targeting the defects that were fixed.
     Use `write_project_file` to write updated test files.
 
-    Use `write_artifact` to save an updated test plan as
-    "revision_{revision_num}_test_plan.md" noting which defects now have
+    Your final response must be the revised test plan noting which defects now have
     test coverage and whether any gaps remain.
   expected_output: >
     Updated test files written via write_project_file.
@@ -448,7 +445,7 @@ re_uat:
     3. Updated summary table
     4. Final verdict: GO / NO-GO with justification
 
-    Use `write_artifact` to save as "revision_{revision_num}_uat_report.md".
+    Your final response must be the revised UAT report.
   expected_output: >
     Revised UAT report with focused pass/fail on prior defects, regression check,
     and a final GO / NO-GO verdict.
