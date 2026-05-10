@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.rule import Rule
 
 from openwally.crew import (
@@ -157,22 +158,14 @@ def run() -> None:
                   + ("" if standards else " — bare-bones project, no standards enforced"))
     console.print(f"[bold]Max revisions:[/bold] {args.max_revisions}\n")
 
-    # ── Main pipeline ──────────────────────────────────────────────────────────
-    console.print(Rule("[bold]Pipeline — Pass 1[/bold]"))
-    logger.info("Starting main pipeline (pass 1)")
+    # ── Shared kickoff inputs ──────────────────────────────────────────────────
     review_instructions = _REVIEW_INSTRUCTIONS.get(args.review_depth, "")
     backend_val = BACKEND_VALIDATION_INSTRUCTIONS if validate else ""
     frontend_val = FRONTEND_VALIDATION_INSTRUCTIONS if validate else ""
     backend_std = BACKEND_STANDARDS if standards else ""
     frontend_std = FRONTEND_STANDARDS if standards else ""
     reviewer_std = REVIEWER_STANDARDS if standards else ""
-    OpenWallyCrew(
-        project_dir=project_dir,
-        docs_dir=docs_dir,
-        mode=args.mode,
-        review_depth=args.review_depth,
-        validate=validate,
-    ).crew().kickoff(inputs={
+    base_inputs = {
         "project_spec": spec,
         "project_name": project_name,
         "review_instructions": review_instructions,
@@ -181,7 +174,38 @@ def run() -> None:
         "backend_standards": backend_std,
         "frontend_standards": frontend_std,
         "reviewer_standards": reviewer_std,
-    })
+    }
+
+    def _progress_bar(description: str, total: int) -> Progress:
+        return Progress(
+            SpinnerColumn(),
+            TextColumn("[bold cyan]{task.description}"),
+            BarColumn(bar_width=28),
+            TextColumn("[green]{task.completed}[/green][dim]/{task.total} agents[/dim]"),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False,
+        )
+
+    # ── Main pipeline ──────────────────────────────────────────────────────────
+    console.print(Rule("[bold]Pipeline — Pass 1[/bold]"))
+    logger.info("Starting main pipeline (pass 1)")
+    n_agents = 9 if args.review_depth == "off" else 10
+    with _progress_bar("Pipeline", n_agents) as progress:
+        task_id = progress.add_task("Pipeline", total=n_agents)
+
+        def advance_main(agent_name: str) -> None:
+            progress.advance(task_id)
+            progress.update(task_id, description=f"Pipeline  [dim]{agent_name} ✓[/dim]")
+
+        OpenWallyCrew(
+            project_dir=project_dir,
+            docs_dir=docs_dir,
+            mode=args.mode,
+            review_depth=args.review_depth,
+            validate=validate,
+            on_task_complete=advance_main,
+        ).crew().kickoff(inputs=base_inputs)
 
     # ── UAT revision loop ──────────────────────────────────────────────────────
     uat_report = "10_uat_report.md"
@@ -198,22 +222,21 @@ def run() -> None:
             f"({revision}/{args.max_revisions})...\n"
         )
 
-        RevisionCrew(
-            project_dir=project_dir,
-            docs_dir=docs_dir,
-            revision_num=revision,
-            mode=args.mode,
-            validate=validate,
-        ).crew().kickoff(inputs={
-            "project_spec": spec,
-            "project_name": project_name,
-            "revision_num": str(revision),
-            "backend_validation_instructions": backend_val,
-            "frontend_validation_instructions": frontend_val,
-            "backend_standards": backend_std,
-            "frontend_standards": frontend_std,
-            "reviewer_standards": reviewer_std,
-        })
+        with _progress_bar(f"Revision {revision}", 4) as progress:
+            task_id = progress.add_task(f"Revision {revision}", total=4)
+
+            def advance_revision(agent_name: str) -> None:
+                progress.advance(task_id)
+                progress.update(task_id, description=f"Revision {revision}  [dim]{agent_name} ✓[/dim]")
+
+            RevisionCrew(
+                project_dir=project_dir,
+                docs_dir=docs_dir,
+                revision_num=revision,
+                mode=args.mode,
+                validate=validate,
+                on_task_complete=advance_revision,
+            ).crew().kickoff(inputs={**base_inputs, "revision_num": str(revision)})
 
         uat_report = f"revision_{revision}_uat_report.md"
 

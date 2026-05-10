@@ -146,10 +146,14 @@ _REVIEW_INSTRUCTIONS: dict[str, str] = {
 }
 
 
-def _log_task_completion(output) -> None:
-    agent_name = getattr(output, "agent", "unknown agent")
-    summary = (output.summary or output.raw or "")[:120].replace("\n", " ")
-    logger.info("Agent handover — {} finished | summary: {}…", agent_name, summary)
+def _make_task_callback(on_task_complete=None):
+    def callback(output) -> None:
+        agent_name = getattr(output, "agent", "unknown agent")
+        summary = (output.summary or output.raw or "")[:120].replace("\n", " ")
+        logger.info("Agent handover — {} finished | summary: {}…", agent_name, summary)
+        if on_task_complete:
+            on_task_complete(agent_name)
+    return callback
 
 
 def _llm(model_key: str) -> LLM:
@@ -179,7 +183,7 @@ class OpenWallyCrew:
 
     def __init__(self, project_dir: Path, docs_dir: Path,
                  mode: str = "autonomous", review_depth: str = "standard",
-                 validate: bool = True) -> None:
+                 validate: bool = True, on_task_complete=None) -> None:
         assert mode in MODES, f"mode must be one of {MODES}"
         assert review_depth in REVIEW_DEPTHS, f"review_depth must be one of {REVIEW_DEPTHS}"
         self._project_dir = project_dir
@@ -187,6 +191,7 @@ class OpenWallyCrew:
         self._mode = mode
         self._review_depth = review_depth
         self._validate = validate
+        self._on_task_complete = on_task_complete
 
     # ── Tool factories ────────────────────────────────────────────────────────
 
@@ -349,7 +354,7 @@ class OpenWallyCrew:
         tasks.extend([self.write_tests(), self.uat_report()])
         return Crew(agents=self.agents, tasks=tasks,
                     process=Process.sequential, verbose=True,
-                    task_callback=_log_task_completion)
+                    task_callback=_make_task_callback(self._on_task_complete))
 
 
 # ── Revision crew (runs only on NO-GO) ───────────────────────────────────────
@@ -364,12 +369,13 @@ class RevisionCrew:
 
     def __init__(self, project_dir: Path, docs_dir: Path,
                  revision_num: int, mode: str = "autonomous",
-                 validate: bool = True) -> None:
+                 validate: bool = True, on_task_complete=None) -> None:
         self._project_dir = project_dir
         self._docs_dir = docs_dir
         self._revision_num = revision_num
         self._mode = mode
         self._validate = validate
+        self._on_task_complete = on_task_complete
 
     def _doc_writer(self) -> ArtifactWriterTool:
         return ArtifactWriterTool(output_dir=str(self._docs_dir))
@@ -455,4 +461,4 @@ class RevisionCrew:
     def crew(self) -> Crew:
         return Crew(agents=self.agents, tasks=self.tasks,
                     process=Process.sequential, verbose=True,
-                    task_callback=_log_task_completion)
+                    task_callback=_make_task_callback(self._on_task_complete))
