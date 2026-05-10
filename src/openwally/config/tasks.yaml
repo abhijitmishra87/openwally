@@ -157,13 +157,28 @@ implement_code:
        one package name per line (e.g. "fastapi", "httpx", "pydantic"). Do NOT
        include the Python standard library. Do NOT include version pins — package
        names only.
-    3. A README.md at the project root with setup and usage instructions.
+    3. A README.md at the project root with setup and usage instructions
+       (focus on what the app does and how to use it — the harness will append a
+       deployment section covering Docker and native install).
+    4. A top-level conftest.py with EXACTLY this content (no other code in it):
+           import sys
+           from pathlib import Path
+           sys.path.insert(0, str(Path(__file__).parent / "src"))
+    5. A top-level start.sh with this exact shape (substitute the real startup command):
+           #!/usr/bin/env bash
+           set -euo pipefail
+           exec <command> --host 0.0.0.0 --port "${PORT:-8000}"
+       It MUST bind to 0.0.0.0 (not 127.0.0.1) and honour the PORT env var.
 
     Rules:
     - Complete files only — no ellipsis, no "# TODO", no placeholders.
     - Full type hints throughout.
     - Satisfy every SR-xxx security requirement from the security addendum.
     - Follow the architecture decisions exactly.
+    - DO NOT create pyproject.toml, setup.py, Dockerfile, docker-compose.yml,
+      Makefile, .env.example, or .dockerignore — the harness owns all infra files.
+    - Logs go to stdout/stderr only (never to disk).
+    - Use pathlib for all path operations. Never hardcode absolute paths.
 
     After writing all source files, append a `## Testing Notes` section to your
     manifest and include:

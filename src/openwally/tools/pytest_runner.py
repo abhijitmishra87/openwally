@@ -35,7 +35,8 @@ class PytestRunnerTool(BaseTool):
                     with_flags += ["--with", pkg]
 
         result = subprocess.run(
-            ["uv", "run"] + with_flags + ["pytest", "tests/", "--tb=short", "-q", "--no-header"],
+            ["uv", "run", "--no-project"] + with_flags
+            + ["pytest", "tests/", "--tb=short", "-q", "--no-header"],
             cwd=str(project_path),
             capture_output=True,
             text=True,
