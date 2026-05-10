@@ -15,6 +15,7 @@ from rich.rule import Rule
 from openwally.crew import (
     MODES, REVIEW_DEPTHS, _REVIEW_INSTRUCTIONS,
     BACKEND_VALIDATION_INSTRUCTIONS, FRONTEND_VALIDATION_INSTRUCTIONS,
+    BACKEND_STANDARDS, FRONTEND_STANDARDS, REVIEWER_STANDARDS,
     OpenWallyCrew, RevisionCrew,
 )
 from openwally.scaffolding import scaffold
@@ -65,6 +66,13 @@ def _parse_args() -> argparse.Namespace:
                      help=(
                          "Skip in-pipeline validation — agents won't run pytest or npm build "
                          "to self-correct. Faster and cheaper; useful for quick iteration."
+                     ))
+    run.add_argument("--no-standards", action="store_true", default=False,
+                     dest="no_standards",
+                     help=(
+                         "Skip engineering standards injection — agents won't enforce logging, "
+                         "error handling, health endpoints, or env-var config. Use when you "
+                         "want a bare-bones project and will apply your own standards."
                      ))
 
     return parser.parse_args()
@@ -132,17 +140,20 @@ def run() -> None:
         encoding="utf-8",
     )
     logger.info("OpenWally pipeline starting — project: {}", project_name)
-    logger.info("Mode: {}  review_depth: {}  validate: {}  max_revisions: {}",
-                args.mode, args.review_depth, not args.no_validate, args.max_revisions)
+    logger.info("Mode: {}  review_depth: {}  validate: {}  standards: {}  max_revisions: {}",
+                args.mode, args.review_depth, validate, standards, args.max_revisions)
 
     console.print(Panel(spec, title="[bold cyan]Project Spec[/bold cyan]", border_style="cyan"))
     console.print(f"[bold]Project:[/bold]       {project_name}")
     console.print(f"[bold]Output:[/bold]        {project_dir}")
     validate = not args.no_validate
+    standards = not args.no_standards
     console.print(f"[bold]Mode:[/bold]          [cyan]{args.mode}[/cyan] — {_mode_description(args.mode)}")
     console.print(f"[bold]Review depth:[/bold]  [cyan]{args.review_depth}[/cyan]")
     console.print(f"[bold]Validation:[/bold]    [cyan]{'on' if validate else 'off'}[/cyan]"
                   + ("" if validate else " — agents will not self-correct via pytest / npm build"))
+    console.print(f"[bold]Standards:[/bold]     [cyan]{'on' if standards else 'off'}[/cyan]"
+                  + ("" if standards else " — bare-bones project, no standards enforced"))
     console.print(f"[bold]Max revisions:[/bold] {args.max_revisions}\n")
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
@@ -151,6 +162,9 @@ def run() -> None:
     review_instructions = _REVIEW_INSTRUCTIONS.get(args.review_depth, "")
     backend_val = BACKEND_VALIDATION_INSTRUCTIONS if validate else ""
     frontend_val = FRONTEND_VALIDATION_INSTRUCTIONS if validate else ""
+    backend_std = BACKEND_STANDARDS if standards else ""
+    frontend_std = FRONTEND_STANDARDS if standards else ""
+    reviewer_std = REVIEWER_STANDARDS if standards else ""
     OpenWallyCrew(
         project_dir=project_dir,
         docs_dir=docs_dir,
@@ -163,6 +177,9 @@ def run() -> None:
         "review_instructions": review_instructions,
         "backend_validation_instructions": backend_val,
         "frontend_validation_instructions": frontend_val,
+        "backend_standards": backend_std,
+        "frontend_standards": frontend_std,
+        "reviewer_standards": reviewer_std,
     })
 
     # ── UAT revision loop ──────────────────────────────────────────────────────
@@ -192,6 +209,9 @@ def run() -> None:
             "revision_num": str(revision),
             "backend_validation_instructions": backend_val,
             "frontend_validation_instructions": frontend_val,
+            "backend_standards": backend_std,
+            "frontend_standards": frontend_std,
+            "reviewer_standards": reviewer_std,
         })
 
         uat_report = f"revision_{revision}_uat_report.md"

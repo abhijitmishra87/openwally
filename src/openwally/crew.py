@@ -40,6 +40,64 @@ REVIEW_DEPTHS = ("off", "standard", "thorough")
 
 # Injected as {backend_validation_instructions} / {frontend_validation_instructions}
 # into implement_code, implement_ui, fix_code, fix_ui when --no-validate is not set.
+BACKEND_STANDARDS: str = (
+    "Every generated backend MUST follow these non-negotiable engineering standards "
+    "regardless of what the spec says:\n\n"
+    "  1. **Logging** — import and use a logger (Python `logging` or `loguru`) in every "
+    "module. Never use `print()` in production code. Log at INFO for normal operations, "
+    "WARNING for recoverable issues, ERROR for failures.\n"
+    "  2. **Error handling** — never use a bare `except:`. Always catch specific exception "
+    "types. Every API endpoint must return a structured error response "
+    "(e.g. `{\"error\": \"message\"}`) — never let exceptions bubble to a 500 with a raw traceback.\n"
+    "  3. **Health endpoint** — include a `GET /health` endpoint that returns "
+    "`{\"status\": \"ok\"}` with HTTP 200. Required for deployment and monitoring.\n"
+    "  4. **Config from env vars** — all configuration (DB URLs, API keys, ports, feature "
+    "flags) must come from environment variables via `python-dotenv` or `pydantic-settings`. "
+    "No hardcoded values anywhere in the source.\n"
+    "  5. **Pydantic validation** — use Pydantic models for all request bodies and "
+    "response shapes. Never access `request.json()` directly without validation.\n"
+    "  6. **Consistent HTTP status codes** — 201 for resource creation, 400 for bad input, "
+    "401 for unauthenticated, 403 for forbidden, 404 for not found, 422 for validation "
+    "errors, 500 for unexpected server errors.\n\n"
+    "Implement these in every file where applicable before saving the manifest."
+)
+
+FRONTEND_STANDARDS: str = (
+    "Every generated frontend MUST follow these non-negotiable engineering standards "
+    "regardless of what the spec says:\n\n"
+    "  1. **Error boundaries** — wrap every major page/route in a React error boundary "
+    "component so a single component crash does not take down the whole app.\n"
+    "  2. **Env-based API URL** — all backend API calls must use `VITE_API_BASE_URL` from "
+    "the environment. No hardcoded URLs or ports anywhere.\n"
+    "  3. **Loading / error / empty states** — every component that fetches data must "
+    "handle all three states explicitly. Do not render null or a blank screen.\n"
+    "  4. **No console.log in production** — remove all `console.log` statements. Use "
+    "a conditional logger or remove entirely before saving files.\n"
+    "  5. **TypeScript strict mode** — `strict: true` in tsconfig.json. Zero `any` types. "
+    "All props and hook return values must be fully typed.\n"
+    "  6. **Accessible interactive elements** — every button, input, and link must have "
+    "an `aria-label` or visible label. Form fields must be associated with `<label>` elements.\n\n"
+    "Implement these in every file where applicable before saving the manifest."
+)
+
+REVIEWER_STANDARDS: str = (
+    "### Engineering Standards Compliance\n"
+    "In addition to architecture and security checks, verify the following standards "
+    "are met in the generated code:\n\n"
+    "  **Backend:**\n"
+    "  - Every module imports and uses a logger — no bare `print()` calls\n"
+    "  - No bare `except:` clauses anywhere\n"
+    "  - A `GET /health` endpoint exists and returns `{\"status\": \"ok\"}`\n"
+    "  - All config values come from env vars — no hardcoded secrets, URLs, or ports\n"
+    "  - All API endpoints return structured error responses on failure\n\n"
+    "  **Frontend:**\n"
+    "  - Error boundaries present on all page-level components\n"
+    "  - API base URL sourced from `VITE_API_BASE_URL` — no hardcoded URLs\n"
+    "  - No `console.log` statements in any component or hook\n"
+    "  - TypeScript strict mode enabled in tsconfig.json\n\n"
+    "Flag any violation as a finding in the Code Quality Findings section."
+)
+
 BACKEND_VALIDATION_INSTRUCTIONS: str = (
     "After saving the manifest, use the `run_pytest` tool to run the test suite.\n"
     "If tests fail, read the error output carefully, fix the failing source files using\n"

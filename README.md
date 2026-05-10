@@ -123,6 +123,7 @@ openwally run --spec "Build a URL shortener with per-link analytics and a React 
 | `--review-depth DEPTH` | `standard` | Code review thoroughness — see below |
 | `--max-revisions N` | `2` | Max UAT revision cycles on NO-GO verdict (`0` to disable) |
 | `--no-validate` | off | Skip in-pipeline validation — agents won't run pytest or npm build to self-correct |
+| `--no-standards` | off | Skip engineering standards injection — bare-bones project, bring your own conventions |
 
 ---
 
@@ -148,6 +149,49 @@ openwally run --spec-file idea.md --max-revisions 3
 ```
 
 When a pause occurs, CrewAI prints the agent's output and prompts you for feedback. Type your notes and press Enter — the agent incorporates your feedback before the next agent runs. Press Enter with no input to accept as-is.
+
+---
+
+## Engineering standards
+
+By default, OpenWally injects a non-negotiable standards checklist into every generated project — regardless of what the spec says. These cover the practices most likely to be missing from a bare AI-generated codebase.
+
+**Backend (enforced on every generated Python project):**
+
+| Standard | What gets generated |
+|---|---|
+| Structured logging | Every module imports and uses a logger — no `print()` in production code |
+| Error handling | No bare `except:` — specific exception types, structured API error responses |
+| Health endpoint | `GET /health` returns `{"status": "ok"}` — required for deployment and monitoring |
+| Env-var config | All config (DB URLs, keys, ports) from environment variables via `python-dotenv` — no hardcoded values |
+| Pydantic validation | All request/response shapes use Pydantic models |
+| HTTP status codes | 201 for creation, 400/401/403/404/422 for errors, 500 for unexpected failures |
+
+**Frontend (enforced on every generated React project):**
+
+| Standard | What gets generated |
+|---|---|
+| Error boundaries | Every page/route wrapped — a component crash won't take down the whole app |
+| Env-based API URL | `VITE_API_BASE_URL` used everywhere — no hardcoded URLs |
+| Loading / error / empty states | All data-fetching components handle all three explicitly |
+| No console.log | All debug statements removed before saving |
+| TypeScript strict mode | `strict: true` in tsconfig.json, zero `any` types |
+| Accessible elements | All interactive elements have `aria-label` or visible labels |
+
+The **Code Reviewer** also checks for standards compliance as a dedicated section in its report — any violation is flagged as a finding.
+
+Use `--no-standards` for a bare-bones project where you'll apply your own conventions:
+
+```bash
+# Default — standards enforced
+openwally run --spec-file idea.md
+
+# Bare-bones — no standards injected
+openwally run --spec-file idea.md --no-standards
+
+# Combine flags
+openwally run --spec-file idea.md --no-standards --no-validate
+```
 
 ---
 
