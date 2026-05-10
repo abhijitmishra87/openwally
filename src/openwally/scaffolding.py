@@ -55,13 +55,13 @@ README.md
 
 _BACKEND_DOCKERFILE = """\
 # syntax=docker/dockerfile:1.7
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 WORKDIR /app
 RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen --no-dev || uv sync --no-dev
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 RUN groupadd -r app && useradd -r -g app -u 1000 app
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
@@ -82,7 +82,7 @@ CMD ["./start.sh"]
 
 _FRONTEND_DOCKERFILE = """\
 # syntax=docker/dockerfile:1.7
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci || npm install

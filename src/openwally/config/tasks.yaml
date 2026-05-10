@@ -42,6 +42,11 @@ design_system:
 
     Every component and API must map back to a specific FR in the requirements.
 
+    Before recommending any runtime, database, or major framework, call the
+    `lookup_latest_version` tool with ecosystem='runtime' (or 'pypi' / 'npm') and
+    the technology name. Use only versions that are currently supported (not past
+    EOL). Cite the version returned by the tool in the Technology Choices section.
+
     After the main document, append a `## Testing Notes` section containing:
     - One integration test scenario per API endpoint (inputs, expected status code,
       expected response shape for both success and error cases)
@@ -151,6 +156,12 @@ implement_code:
     Implement every task in the task list as real, runnable Python source files.
     Use the `write_project_file` tool to write each file — one tool call per file.
 
+    Before adding a third-party package to deps.txt, call `lookup_latest_version`
+    with ecosystem='pypi' to confirm the package exists and to use APIs that match
+    the current stable release. The project will run on Python 3.14 — use modern
+    Python features (PEP 695 type aliases, structural pattern matching, etc.) where
+    they make the code clearer.
+
     Required files you MUST produce:
     1. All Python source modules under src/{project_name}/
     2. A top-level deps.txt listing every third-party pip package the code needs,
@@ -205,6 +216,10 @@ implement_ui:
     Implement the UI design spec as a complete React + TypeScript + Tailwind CSS
     frontend. Use the `write_project_file` tool to write every file — one call per file.
     All files go under frontend/.
+
+    Before pinning any npm package version in package.json, call `lookup_latest_version`
+    with ecosystem='npm' to use the current stable release. The frontend will be
+    built and served on Node 24 — assume modern ES2024+ features are available.
 
     Required structure:
     - frontend/package.json          (all npm deps, scripts: dev, build, preview, lint)

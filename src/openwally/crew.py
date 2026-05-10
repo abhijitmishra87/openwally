@@ -10,6 +10,7 @@ from openwally.tools.project_file_writer import ProjectFileWriterTool
 from openwally.tools.project_file_reader import ProjectFileReaderTool
 from openwally.tools.pytest_runner import PytestRunnerTool
 from openwally.tools.npm_build_runner import NpmBuildTool
+from openwally.tools.latest_version import LatestVersionTool
 
 load_dotenv()
 
@@ -227,6 +228,9 @@ class OpenWallyCrew:
     def _npm_builder(self) -> NpmBuildTool:
         return NpmBuildTool(project_dir=str(self._project_dir))
 
+    def _version_lookup(self) -> LatestVersionTool:
+        return LatestVersionTool()
+
     def _human_input(self, task_name: str) -> bool:
         if self._mode == "interactive":
             return True
@@ -244,7 +248,8 @@ class OpenWallyCrew:
     @agent
     def software_architect(self) -> Agent:
         return Agent(config=self.agents_config["software_architect"],
-                     llm=_llm("ARCHITECT_MODEL"), tools=[], verbose=True)
+                     llm=_llm("ARCHITECT_MODEL"),
+                     tools=[self._version_lookup()], verbose=True)
 
     @agent
     def security_architect(self) -> Agent:
@@ -263,7 +268,7 @@ class OpenWallyCrew:
 
     @agent
     def developer(self) -> Agent:
-        tools = [self._file_writer()]
+        tools = [self._file_writer(), self._version_lookup()]
         if self._validate:
             tools.append(self._pytest_runner())
         return Agent(config=self.agents_config["developer"],
@@ -271,7 +276,7 @@ class OpenWallyCrew:
 
     @agent
     def ui_developer(self) -> Agent:
-        tools = [self._file_writer()]
+        tools = [self._file_writer(), self._version_lookup()]
         if self._validate:
             tools.append(self._npm_builder())
         return Agent(config=self.agents_config["ui_developer"],
@@ -415,6 +420,9 @@ class RevisionCrew:
     def _npm_builder(self) -> NpmBuildTool:
         return NpmBuildTool(project_dir=str(self._project_dir))
 
+    def _version_lookup(self) -> LatestVersionTool:
+        return LatestVersionTool()
+
     def _human_input(self) -> bool:
         return self._mode == "interactive"
 
@@ -422,7 +430,8 @@ class RevisionCrew:
 
     @agent
     def developer(self) -> Agent:
-        tools = [self._file_writer(), self._file_reader(), self._doc_reader()]
+        tools = [self._file_writer(), self._file_reader(), self._doc_reader(),
+                 self._version_lookup()]
         if self._validate:
             tools.append(self._pytest_runner())
         return Agent(config=self.agents_config["developer"],
@@ -430,7 +439,8 @@ class RevisionCrew:
 
     @agent
     def ui_developer(self) -> Agent:
-        tools = [self._file_writer(), self._file_reader(), self._doc_reader()]
+        tools = [self._file_writer(), self._file_reader(), self._doc_reader(),
+                 self._version_lookup()]
         if self._validate:
             tools.append(self._npm_builder())
         return Agent(config=self.agents_config["ui_developer"],
