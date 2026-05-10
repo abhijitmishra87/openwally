@@ -24,6 +24,7 @@ _MODELS: dict[str, str] = {
     "UI_DEV_MODEL":         os.getenv("UI_DEV_MODEL",         "claude-opus-4-7"),
     "DEV_MODEL":            os.getenv("DEV_MODEL",            "claude-sonnet-4-6"),
     "DEVOPS_MODEL":         os.getenv("DEVOPS_MODEL",         "claude-sonnet-4-6"),
+    "SRE_MODEL":            os.getenv("SRE_MODEL",            "claude-sonnet-4-6"),
     "CODE_REVIEWER_MODEL":  os.getenv("CODE_REVIEWER_MODEL",  "claude-opus-4-7"),
     "QA_MODEL":             os.getenv("QA_MODEL",             "claude-sonnet-4-6"),
     "UAT_MODEL":            os.getenv("UAT_MODEL",            "claude-haiku-4-5-20251001"),
@@ -56,10 +57,11 @@ TEAM_ROSTER: str = (
     " 7. Backend Developer      owns 6_implementation_manifest.md + src/<package>/, deps.txt, conftest.py, start.sh\n"
     " 8. UI Developer           owns 7_ui_manifest.md + frontend/\n"
     " 9. DevOps Engineer        owns 7a_devops_plan.md + .github/workflows/, logging_config.py, observability.py, optional k8s/\n"
-    "10. Code Reviewer          owns 8_code_review.md (compliance verdict)\n"
-    "11. Quality Engineer       owns 9_test_plan.md + tests/, frontend/src/__tests__/\n"
-    "12. UAT Tester             owns 10_uat_report.md (final GO / NO-GO)\n"
-    "13. Technical Writer       owns 11_documentation.md + README.md, docs/api.md, docs/architecture.md, docs/adr/, CONTRIBUTING.md, CHANGELOG.md\n"
+    "10. Site Reliability Eng   owns 7b_sre_plan.md + ops/alerts.yaml, ops/grafana/, docs/runbooks/, SLO definitions\n"
+    "11. Code Reviewer          owns 8_code_review.md (compliance verdict)\n"
+    "12. Quality Engineer       owns 9_test_plan.md + tests/, frontend/src/__tests__/\n"
+    "13. UAT Tester             owns 10_uat_report.md (final GO / NO-GO)\n"
+    "14. Technical Writer       owns 11_documentation.md + README.md, docs/api.md, docs/architecture.md, docs/adr/, CONTRIBUTING.md, CHANGELOG.md\n"
     "\n"
     "OWNERSHIP RULES — stay in your lane:\n"
     "• If you are not the Database Engineer, reference the schema, do not redesign it.\n"
@@ -333,6 +335,14 @@ class OpenWallyCrew:
                      verbose=True)
 
     @agent
+    def sre(self) -> Agent:
+        return Agent(config=self.agents_config["sre"],
+                     llm=_llm("SRE_MODEL"),
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_reader()],
+                     verbose=True)
+
+    @agent
     def code_reviewer(self) -> Agent:
         return Agent(config=self.agents_config["code_reviewer"],
                      llm=_llm("CODE_REVIEWER_MODEL"),
@@ -416,6 +426,12 @@ class OpenWallyCrew:
                     output_file=str(self._docs_dir / "7a_devops_plan.md"))
 
     @task
+    def plan_reliability(self) -> Task:
+        return Task(config=self.tasks_config["plan_reliability"],
+                    human_input=self._human_input("plan_reliability"),
+                    output_file=str(self._docs_dir / "7b_sre_plan.md"))
+
+    @task
     def review_code(self) -> Task:
         return Task(config=self.tasks_config["review_code"],
                     human_input=self._human_input("review_code"),
@@ -453,6 +469,7 @@ class OpenWallyCrew:
             self.implement_code(),
             self.implement_ui(),
             self.plan_deploy(),
+            self.plan_reliability(),
         ]
         if self._review_depth != "off":
             tasks.append(self.review_code())

@@ -408,6 +408,69 @@ plan_deploy:
   agent: devops_engineer
   context: [design_system, threat_model, design_database, implement_code, implement_ui]
 
+plan_reliability:
+  description: >
+    {team_roster}
+
+    The DevOps engineer has wired structured logging and Prometheus metrics. Your
+    job is to make this project actually operable in production: define what
+    "healthy" means, alert on its absence, and tell the on-call human what to do
+    when an alert fires.
+
+    Step 1 — Define SLOs.
+    Read the requirements (especially non-functional requirements) and the
+    architecture. Pick 3-5 SLOs covering availability, latency, and correctness
+    that map to USER-VISIBLE behaviour, not internal metrics. Each SLO needs:
+    - A clear definition (e.g. "99% of GET /todos requests return 2xx within 200ms over a rolling 28-day window")
+    - The corresponding SLI (the metric expression in PromQL or equivalent)
+    - The error budget (what % of failures is acceptable per window)
+    - Justification grounded in the requirements
+
+    Step 2 — Write alert rules.
+    Use `write_project_file` to create `ops/alerts.yaml` in Prometheus AlertManager
+    format. Every alert MUST:
+    - Alert on a symptom (high error rate, high latency) not a cause (CPU spike).
+    - Reference a specific SLO from Step 1 OR a hard infrastructure failure.
+    - Have severity: page (wake someone) or ticket (handle next business day).
+    - Link to a runbook by anchor (e.g. `runbook: docs/runbooks/high-error-rate.md`).
+    - Include `for:` duration so transient blips don't page.
+
+    Reject "vanity alerts" that fire without an actionable response.
+
+    Step 3 — Write runbooks.
+    Use `write_project_file` to create one runbook per `page`-severity alert under
+    `docs/runbooks/<alert-name>.md`. Each runbook has:
+    - Symptom: what the alert means in plain English
+    - Likely causes: ranked by frequency
+    - Diagnostic steps: exact commands or queries to run, with expected output
+    - Mitigation: ordered actions from least to most disruptive
+    - Escalation: when and to whom
+    - Related alerts: which other alerts often fire together
+
+    Step 4 — Define a dashboard.
+    Use `write_project_file` to create `ops/grafana/main-dashboard.json` — a
+    Grafana dashboard JSON covering: request rate, error rate, p50/p95/p99
+    latency, in-flight requests, and one panel per SLO showing the burn rate.
+    Don't overload it — 8-12 panels max, organised top-to-bottom by what an
+    on-call engineer checks first.
+
+    Step 5 — Health vs readiness.
+    Confirm the backend exposes both /health (liveness — is the process alive?)
+    and /ready (readiness — can it serve traffic? checks DB connectivity, etc.).
+    If only /health exists in the implementation, list the discrepancy as a
+    finding and recommend the change to the developer in your report.
+
+    Your final response must be the complete reliability plan with these sections:
+    SLOs, Alert Catalogue (table: name → SLO → severity → runbook), Runbook Index,
+    Dashboard Layout, Health/Readiness Audit, and On-Call Onboarding Notes.
+  expected_output: >
+    A reliability plan with 3-5 SLOs grounded in NFRs, an alert catalogue mapping
+    each alert to an SLO and a runbook, an index of runbooks written, a dashboard
+    description, and a health/readiness compliance audit. Concrete files written
+    under ops/ and docs/runbooks/.
+  agent: sre
+  context: [write_requirements, design_system, threat_model, design_database, plan_deploy, implement_code, implement_ui]
+
 review_code:
   description: >
     {team_roster}
@@ -461,7 +524,7 @@ review_code:
     Every finding cites a specific file and requirement.
     A clear APPROVED / APPROVED WITH NOTES / BLOCKED verdict.
   agent: code_reviewer
-  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks, design_database, plan_deploy]
+  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks, design_database, plan_deploy, plan_reliability]
 
 write_tests:
   description: >
@@ -504,7 +567,7 @@ write_tests:
     All test files written to tests/ and frontend/src/__tests__/ via write_project_file.
     Test plan artifact "9_test_plan.md" with coverage mapping and gap analysis.
   agent: quality_engineer
-  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, review_code]
+  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, plan_reliability, review_code]
 
 uat_report:
   description: >
@@ -625,7 +688,7 @@ document_project:
     docs/architecture.md, docs/adr/*.md, CONTRIBUTING.md, CHANGELOG.md) with the
     section structure of each, plus any documentation gaps flagged.
   agent: technical_writer
-  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, review_code, write_tests, uat_report]
+  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, plan_reliability, review_code, write_tests, uat_report]
 
 # ── Revision cycle tasks (used only when UAT returns NO-GO) ──────────────────
 
