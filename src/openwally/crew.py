@@ -17,6 +17,7 @@ load_dotenv()
 _MODELS: dict[str, str] = {
     "PM_MODEL":             os.getenv("PM_MODEL",             "claude-opus-4-7"),
     "ARCHITECT_MODEL":      os.getenv("ARCHITECT_MODEL",      "claude-opus-4-7"),
+    "API_DESIGNER_MODEL":   os.getenv("API_DESIGNER_MODEL",   "claude-sonnet-4-6"),
     "SECURITY_MODEL":       os.getenv("SECURITY_MODEL",       "claude-opus-4-7"),
     "DATABASE_MODEL":       os.getenv("DATABASE_MODEL",       "claude-opus-4-7"),
     "EM_MODEL":             os.getenv("EM_MODEL",             "claude-sonnet-4-6"),
@@ -25,6 +26,7 @@ _MODELS: dict[str, str] = {
     "DEV_MODEL":            os.getenv("DEV_MODEL",            "claude-sonnet-4-6"),
     "DEVOPS_MODEL":         os.getenv("DEVOPS_MODEL",         "claude-sonnet-4-6"),
     "SRE_MODEL":            os.getenv("SRE_MODEL",            "claude-sonnet-4-6"),
+    "PERF_MODEL":           os.getenv("PERF_MODEL",           "claude-sonnet-4-6"),
     "CODE_REVIEWER_MODEL":  os.getenv("CODE_REVIEWER_MODEL",  "claude-opus-4-7"),
     "QA_MODEL":             os.getenv("QA_MODEL",             "claude-sonnet-4-6"),
     "UAT_MODEL":            os.getenv("UAT_MODEL",            "claude-haiku-4-5-20251001"),
@@ -50,18 +52,20 @@ TEAM_ROSTER: str = (
     "═════════════════════════════════════════════════════════════════\n"
     " 1. Program Manager        owns 1_requirements.md (FR-xxx, AC-FR-xxx)\n"
     " 2. Software Architect     owns 2_architecture.md (components, API contracts)\n"
-    " 3. Security Architect     owns 3_security.md (STRIDE, SR-xxx)\n"
-    " 4. Database Engineer      owns 3a_database_design.md (schema, indexes, migrations)\n"
-    " 5. Engineering Manager    owns 4_tasks.md (T-xxx with definitions of done)\n"
-    " 6. UI/UX Designer         owns 5_ui_design.md (wireframes, tokens, components)\n"
-    " 7. Backend Developer      owns 6_implementation_manifest.md + src/<package>/, deps.txt, conftest.py, start.sh\n"
-    " 8. UI Developer           owns 7_ui_manifest.md + frontend/\n"
-    " 9. DevOps Engineer        owns 7a_devops_plan.md + .github/workflows/, logging_config.py, observability.py, optional k8s/\n"
-    "10. Site Reliability Eng   owns 7b_sre_plan.md + ops/alerts.yaml, ops/grafana/, docs/runbooks/, SLO definitions\n"
-    "11. Code Reviewer          owns 8_code_review.md (compliance verdict)\n"
-    "12. Quality Engineer       owns 9_test_plan.md + tests/, frontend/src/__tests__/\n"
-    "13. UAT Tester             owns 10_uat_report.md (final GO / NO-GO)\n"
-    "14. Technical Writer       owns 11_documentation.md + README.md, docs/api.md, docs/architecture.md, docs/adr/, CONTRIBUTING.md, CHANGELOG.md\n"
+    " 3. API Designer           owns 2a_api_spec.md + docs/openapi.yaml (OpenAPI 3.1, error envelope, pagination, versioning)\n"
+    " 4. Security Architect     owns 3_security.md (STRIDE, SR-xxx)\n"
+    " 5. Database Engineer      owns 3a_database_design.md (schema, indexes, migrations)\n"
+    " 6. Engineering Manager    owns 4_tasks.md (T-xxx with definitions of done)\n"
+    " 7. UI/UX Designer         owns 5_ui_design.md (wireframes, tokens, components)\n"
+    " 8. Backend Developer      owns 6_implementation_manifest.md + src/<package>/, deps.txt, conftest.py, start.sh\n"
+    " 9. UI Developer           owns 7_ui_manifest.md + frontend/\n"
+    "10. DevOps Engineer        owns 7a_devops_plan.md + .github/workflows/, logging_config.py, observability.py, optional k8s/\n"
+    "11. Site Reliability Eng   owns 7b_sre_plan.md + ops/alerts.yaml, ops/grafana/, docs/runbooks/, SLO definitions\n"
+    "12. Performance Engineer   owns 7c_performance_plan.md + perf/k6/, perf budget, capacity plan, hot-path findings\n"
+    "13. Code Reviewer          owns 8_code_review.md (compliance verdict)\n"
+    "14. Quality Engineer       owns 9_test_plan.md + tests/, frontend/src/__tests__/\n"
+    "15. UAT Tester             owns 10_uat_report.md (final GO / NO-GO)\n"
+    "16. Technical Writer       owns 11_documentation.md + README.md, docs/api.md, docs/architecture.md, docs/adr/, CONTRIBUTING.md, CHANGELOG.md\n"
     "\n"
     "OWNERSHIP RULES — stay in your lane:\n"
     "• If you are not the Database Engineer, reference the schema, do not redesign it.\n"
@@ -290,6 +294,14 @@ class OpenWallyCrew:
                      tools=[self._version_lookup()], verbose=True)
 
     @agent
+    def api_designer(self) -> Agent:
+        return Agent(config=self.agents_config["api_designer"],
+                     llm=_llm("API_DESIGNER_MODEL"),
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_reader()],
+                     verbose=True)
+
+    @agent
     def security_architect(self) -> Agent:
         return Agent(config=self.agents_config["security_architect"],
                      llm=_llm("SECURITY_MODEL"), tools=[], verbose=True)
@@ -343,6 +355,14 @@ class OpenWallyCrew:
                      verbose=True)
 
     @agent
+    def performance_engineer(self) -> Agent:
+        return Agent(config=self.agents_config["performance_engineer"],
+                     llm=_llm("PERF_MODEL"),
+                     tools=[self._file_writer(), self._file_reader(),
+                            self._doc_reader(), self._version_lookup()],
+                     verbose=True)
+
+    @agent
     def code_reviewer(self) -> Agent:
         return Agent(config=self.agents_config["code_reviewer"],
                      llm=_llm("CODE_REVIEWER_MODEL"),
@@ -382,6 +402,12 @@ class OpenWallyCrew:
         return Task(config=self.tasks_config["design_system"],
                     human_input=self._human_input("design_system"),
                     output_file=str(self._docs_dir / "2_architecture.md"))
+
+    @task
+    def design_api(self) -> Task:
+        return Task(config=self.tasks_config["design_api"],
+                    human_input=self._human_input("design_api"),
+                    output_file=str(self._docs_dir / "2a_api_spec.md"))
 
     @task
     def threat_model(self) -> Task:
@@ -432,6 +458,12 @@ class OpenWallyCrew:
                     output_file=str(self._docs_dir / "7b_sre_plan.md"))
 
     @task
+    def plan_performance(self) -> Task:
+        return Task(config=self.tasks_config["plan_performance"],
+                    human_input=self._human_input("plan_performance"),
+                    output_file=str(self._docs_dir / "7c_performance_plan.md"))
+
+    @task
     def review_code(self) -> Task:
         return Task(config=self.tasks_config["review_code"],
                     human_input=self._human_input("review_code"),
@@ -462,6 +494,7 @@ class OpenWallyCrew:
         tasks = [
             self.write_requirements(),
             self.design_system(),
+            self.design_api(),
             self.threat_model(),
             self.design_database(),
             self.plan_tasks(),
@@ -470,6 +503,7 @@ class OpenWallyCrew:
             self.implement_ui(),
             self.plan_deploy(),
             self.plan_reliability(),
+            self.plan_performance(),
         ]
         if self._review_depth != "off":
             tasks.append(self.review_code())

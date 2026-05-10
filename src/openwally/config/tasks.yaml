@@ -65,6 +65,81 @@ design_system:
   agent: software_architect
   context: [write_requirements]
 
+design_api:
+  description: >
+    {team_roster}
+
+    The Software Architect has outlined API contracts in 2_architecture.md.
+    Your job is to formalise those into an OpenAPI 3.1 specification and to
+    define the cross-cutting API conventions the developer will implement.
+
+    Step 1 — Write the OpenAPI spec.
+    Use `write_project_file` to create `docs/openapi.yaml` (OpenAPI 3.1.0).
+    For every endpoint named in the architecture:
+    - Path, method, summary, description
+    - Path/query/body parameters with full JSON Schema (types, required, format, enum, min/max, pattern)
+    - Request body schema referencing components.schemas/* — never inline
+    - Response schemas per status code (200, 201, 204, 400, 401, 403, 404, 409, 422, 429, 500)
+    - Security requirements (per-operation if they vary)
+    - tags grouping endpoints by resource
+
+    Define every model under components.schemas. Reuse aggressively. No two
+    endpoints should hand-define the same shape.
+
+    Step 2 — Define the cross-cutting conventions.
+    Document these in your final response and ALSO codify them as $refs in the
+    OpenAPI spec where applicable:
+
+    a) Error envelope — every 4xx and 5xx response uses the same shape:
+       {
+         "error": {
+           "code": "string (machine-readable, e.g. 'validation_failed')",
+           "message": "string (human-readable)",
+           "details": [{"field": "...", "issue": "..."}]   // optional
+         },
+         "request_id": "uuid"
+       }
+
+    b) Pagination — every list endpoint accepts ?limit (default 50, max 200)
+       and ?cursor (opaque string). Responses include
+       {"data": [...], "next_cursor": "string|null"}.
+
+    c) Versioning — pick ONE: URI prefix (/v1/...) or header (Accept:
+       application/vnd.<project>.v1+json). State which and justify. Document
+       the deprecation policy: how long old versions live, how clients are warned.
+
+    d) Idempotency — every POST that creates a resource accepts an
+       Idempotency-Key request header. Requests with the same key within
+       24 hours return the original response.
+
+    e) Rate limiting — define the standard response headers (X-RateLimit-Limit,
+       X-RateLimit-Remaining, X-RateLimit-Reset) and the 429 response body shape.
+
+    f) Authentication — define the auth scheme (Bearer JWT, API key, OAuth2)
+       grounded in the architect's choice. Specify token format, expiry,
+       refresh flow if any.
+
+    Step 3 — Validate.
+    Mentally run through every FR-xxx in the requirements: is there an endpoint
+    or sequence of endpoints that satisfies it? Flag any gaps. Mentally run
+    through every SR-xxx requirement the security architect WILL produce
+    (auth, authz, input validation, rate limiting): is the spec compatible?
+    Where you anticipate a security requirement, structure the spec to make
+    it easy to satisfy.
+
+    Your final response must be the API design document with these sections:
+    OpenAPI Summary (which file, how many endpoints, how many schemas), API
+    Conventions (error envelope, pagination, versioning, idempotency, rate
+    limiting, auth — each with the exact shape), Endpoint Index (table:
+    method, path, purpose, FR-xxx covered), and Open Questions (anything
+    the architect's contract was ambiguous about).
+  expected_output: >
+    An API design document with OpenAPI summary, fully-defined cross-cutting
+    conventions, an endpoint index mapping every endpoint to FR-xxx, and a
+    list of open questions. Concrete docs/openapi.yaml file written.
+  agent: api_designer
+  context: [write_requirements, design_system]
+
 threat_model:
   description: >
     {team_roster}
@@ -92,7 +167,7 @@ threat_model:
     A security addendum with STRIDE threat table, risk ratings, numbered SR-xxx
     requirements, and a Testing Notes section with one concrete test per SR.
   agent: security_architect
-  context: [design_system]
+  context: [design_system, design_api]
 
 design_database:
   description: >
@@ -146,7 +221,7 @@ design_database:
     indexes with justifications, ordered migration list, seed data, operational
     notes, and a Testing Notes section.
   agent: database_engineer
-  context: [write_requirements, design_system, threat_model]
+  context: [write_requirements, design_system, design_api, threat_model]
 
 plan_tasks:
   description: >
@@ -175,7 +250,7 @@ plan_tasks:
     A task list with summary table, all tasks in specified format,
     and a Testing Notes section mapping each T-xxx to a testable assertion.
   agent: engineering_manager
-  context: [design_system, threat_model, design_database]
+  context: [design_system, design_api, threat_model, design_database]
 
 design_ui:
   description: >
@@ -275,7 +350,7 @@ implement_code:
     All source files written via write_project_file. deps.txt and README.md present.
     Manifest artifact with Testing Notes section and final pytest result.
   agent: developer
-  context: [plan_tasks, threat_model, design_database]
+  context: [plan_tasks, design_api, threat_model, design_database]
 
 implement_ui:
   description: >
@@ -330,7 +405,7 @@ implement_ui:
     Complete frontend/ directory written via write_project_file.
     Manifest artifact "7_ui_manifest.md" with Testing Notes section and final build result.
   agent: ui_developer
-  context: [design_ui, implement_code]
+  context: [design_ui, design_api, implement_code]
 
 plan_deploy:
   description: >
@@ -471,6 +546,68 @@ plan_reliability:
   agent: sre
   context: [write_requirements, design_system, threat_model, design_database, plan_deploy, implement_code, implement_ui]
 
+plan_performance:
+  description: >
+    {team_roster}
+
+    The SRE has defined the SLOs. Your job is to make those SLOs verifiable
+    and to flag any code path likely to violate them under load.
+
+    Step 1 — Define the performance budget.
+    For every endpoint or workflow named in the architecture, write a budget
+    line: target p50, p95, p99 latency at the expected concurrent-user count
+    from the requirements. Derive numbers from the SRE's SLOs — never invent.
+    Include throughput targets (requests/sec) and the resource ceiling (memory
+    and CPU per instance) the project is allowed to use.
+
+    Step 2 — Write executable load tests.
+    Use `write_project_file` to create k6 scripts under `perf/k6/`:
+
+      perf/k6/smoke.js — a 30-second smoke test (low VUs, golden-path requests
+      only). Runs in CI. Passes if no errors and p95 within budget.
+
+      perf/k6/load.js — a 5-minute steady-state load test at the expected
+      concurrent-user count. Models realistic user journeys with think-time
+      between 1-5 seconds. Asserts the full performance budget.
+
+      perf/k6/spike.js — a spike test: ramp from 0 → expected_load × 3 over 30s,
+      hold for 1 minute, ramp down. Asserts the system recovers without errors.
+
+    Each script must use `check()` for assertions and `Trend` for percentile
+    metrics. Use `lookup_latest_version` with ecosystem='runtime' name='k6' to
+    confirm a current k6 version in the README.
+
+    Step 3 — Identify hot paths.
+    Use `read_project_file` to read the actual handler code for the top 3-5
+    most-trafficked endpoints (per the architecture). For each, list:
+    - Database queries it issues (cite the file and line)
+    - Whether the queries are covered by an index from the database design
+    - N+1 patterns or unbatched calls
+    - Synchronous external API calls inside the request path
+    - Locks or shared state that limits concurrency
+
+    Flag every concern as a finding with: file, line, problem, suggested fix.
+    Do NOT fix the code — that's the developer's job. List the findings so
+    the code reviewer and (if NO-GO) the revision developer have a target list.
+
+    Step 4 — Capacity plan.
+    Given the year-1 user count from the requirements and the database engineer's
+    row-count projections, estimate: expected steady-state load (req/s), peak
+    load (multiplier), required instance count, RAM per instance, DB connection
+    pool size, and at what scale read replicas become necessary.
+
+    Your final response must be the complete performance plan with these sections:
+    Performance Budget, Load Test Catalogue, Hot-Path Findings, Capacity Plan,
+    and a Test Execution section explaining how to run each k6 script locally
+    and in CI.
+  expected_output: >
+    A performance plan with budget per endpoint (p50/p95/p99), three k6 scripts
+    (smoke, load, spike) written under perf/k6/, hot-path findings with file
+    and line citations, capacity estimates grounded in the requirements, and
+    a how-to-run section.
+  agent: performance_engineer
+  context: [write_requirements, design_system, design_database, implement_code, implement_ui, plan_deploy, plan_reliability]
+
 review_code:
   description: >
     {team_roster}
@@ -524,7 +661,7 @@ review_code:
     Every finding cites a specific file and requirement.
     A clear APPROVED / APPROVED WITH NOTES / BLOCKED verdict.
   agent: code_reviewer
-  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks, design_database, plan_deploy, plan_reliability]
+  context: [implement_code, implement_ui, design_system, design_api, threat_model, plan_tasks, design_database, plan_deploy, plan_reliability, plan_performance]
 
 write_tests:
   description: >
@@ -567,7 +704,7 @@ write_tests:
     All test files written to tests/ and frontend/src/__tests__/ via write_project_file.
     Test plan artifact "9_test_plan.md" with coverage mapping and gap analysis.
   agent: quality_engineer
-  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, plan_reliability, review_code]
+  context: [write_requirements, design_system, design_api, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, plan_reliability, plan_performance, review_code]
 
 uat_report:
   description: >
@@ -688,7 +825,7 @@ document_project:
     docs/architecture.md, docs/adr/*.md, CONTRIBUTING.md, CHANGELOG.md) with the
     section structure of each, plus any documentation gaps flagged.
   agent: technical_writer
-  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, plan_reliability, review_code, write_tests, uat_report]
+  context: [write_requirements, design_system, design_api, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, plan_reliability, plan_performance, review_code, write_tests, uat_report]
 
 # ── Revision cycle tasks (used only when UAT returns NO-GO) ──────────────────
 
