@@ -190,7 +190,7 @@ def run() -> None:
     # ── Main pipeline ──────────────────────────────────────────────────────────
     console.print(Rule("[bold]Pipeline — Pass 1[/bold]"))
     logger.info("Starting main pipeline (pass 1)")
-    n_agents = 9 if args.review_depth == "off" else 10
+    n_agents = 10 if args.review_depth == "off" else 11
     with _progress_bar("Pipeline", n_agents) as progress:
         task_id = progress.add_task("Pipeline", total=n_agents)
 

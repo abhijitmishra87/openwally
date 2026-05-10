@@ -88,10 +88,62 @@ threat_model:
   agent: security_architect
   context: [design_system]
 
+design_database:
+  description: >
+    Using the requirements and architecture documents, design the full persistence
+    layer for this project. Produce a document with:
+
+    1. Database Engine Choice — which database (Postgres, SQLite, MySQL, MongoDB,
+       DynamoDB, etc.) and version, with a one-paragraph justification grounded
+       in the access patterns the architecture implies. Use `lookup_latest_version`
+       with ecosystem='runtime' to confirm the version you choose is currently
+       supported (not past EOL).
+
+    2. Entity-Relationship Model — Mermaid ER diagram covering every entity from
+       the architecture's data models. Show cardinality on every relationship.
+
+    3. Schema (DDL) — complete `CREATE TABLE` statements (or equivalent for
+       NoSQL). Include column types, NOT NULL, defaults, foreign keys, ON DELETE
+       behaviour, and CHECK constraints. No hand-waving.
+
+    4. Indexes — every index with the columns covered, the index type
+       (btree/hash/GIN/GiST), and a one-line justification tied to a query
+       pattern from the architecture. Flag any query the architecture implies
+       that has no supporting index.
+
+    5. Migrations — list the migration files the developer must produce, in
+       order. Use the convention `migrations/0001_<description>.sql`,
+       `migrations/0002_<description>.sql`, etc. Each migration must be
+       idempotent and reversible (include the down-migration).
+
+    6. Seed Data — a minimal seed script (`migrations/seed.sql` or
+       `seeds/seed.sql`) that creates enough data to make the app demo-able.
+
+    7. Operational Concerns — connection pooling defaults, expected row counts
+       at year 1 / year 3, when sharding or read replicas would become necessary,
+       and which fields require encryption at rest (cross-reference SR-xxx
+       requirements from the security addendum).
+
+    After the main design, append a `## Testing Notes` section containing:
+    - Migration tests: every migration must be tested up + down on a fresh DB
+    - Constraint tests: insert violations the schema must reject (FK, CHECK, UNIQUE)
+    - Index coverage tests: every documented query pattern must use an index
+      (verify with EXPLAIN, no sequential scans on hot paths)
+    - Concurrency tests: any row that could be updated under contention needs a
+      test that proves the locking strategy works
+
+    Your final response must be the complete database design document.
+  expected_output: >
+    A database design document with engine choice, ER diagram, complete DDL,
+    indexes with justifications, ordered migration list, seed data, operational
+    notes, and a Testing Notes section.
+  agent: database_engineer
+  context: [write_requirements, design_system, threat_model]
+
 plan_tasks:
   description: >
-    Using the architecture doc and security addendum, produce an ordered development
-    task list. Each task must have:
+    Using the architecture doc, security addendum, and database design, produce
+    an ordered development task list. Each task must have:
     - Task ID (T-001, T-002, ...)
     - Title (imperative, ≤10 words)
     - Description (what to build, not how)
@@ -113,7 +165,7 @@ plan_tasks:
     A task list with summary table, all tasks in specified format,
     and a Testing Notes section mapping each T-xxx to a testable assertion.
   agent: engineering_manager
-  context: [design_system, threat_model]
+  context: [design_system, threat_model, design_database]
 
 design_ui:
   description: >
@@ -209,7 +261,7 @@ implement_code:
     All source files written via write_project_file. deps.txt and README.md present.
     Manifest artifact with Testing Notes section and final pytest result.
   agent: developer
-  context: [plan_tasks, threat_model]
+  context: [plan_tasks, threat_model, design_database]
 
 implement_ui:
   description: >
@@ -315,7 +367,7 @@ review_code:
     Every finding cites a specific file and requirement.
     A clear APPROVED / APPROVED WITH NOTES / BLOCKED verdict.
   agent: code_reviewer
-  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks]
+  context: [implement_code, implement_ui, design_system, threat_model, plan_tasks, design_database]
 
 write_tests:
   description: >
@@ -356,7 +408,7 @@ write_tests:
     All test files written to tests/ and frontend/src/__tests__/ via write_project_file.
     Test plan artifact "9_test_plan.md" with coverage mapping and gap analysis.
   agent: quality_engineer
-  context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui, review_code]
+  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, review_code]
 
 uat_report:
   description: >

@@ -18,6 +18,7 @@ _MODELS: dict[str, str] = {
     "PM_MODEL":             os.getenv("PM_MODEL",             "claude-opus-4-7"),
     "ARCHITECT_MODEL":      os.getenv("ARCHITECT_MODEL",      "claude-opus-4-7"),
     "SECURITY_MODEL":       os.getenv("SECURITY_MODEL",       "claude-opus-4-7"),
+    "DATABASE_MODEL":       os.getenv("DATABASE_MODEL",       "claude-opus-4-7"),
     "EM_MODEL":             os.getenv("EM_MODEL",             "claude-sonnet-4-6"),
     "UI_DESIGNER_MODEL":    os.getenv("UI_DESIGNER_MODEL",    "claude-opus-4-7"),
     "UI_DEV_MODEL":         os.getenv("UI_DEV_MODEL",         "claude-opus-4-7"),
@@ -257,6 +258,12 @@ class OpenWallyCrew:
                      llm=_llm("SECURITY_MODEL"), tools=[], verbose=True)
 
     @agent
+    def database_engineer(self) -> Agent:
+        return Agent(config=self.agents_config["database_engineer"],
+                     llm=_llm("DATABASE_MODEL"),
+                     tools=[self._version_lookup()], verbose=True)
+
+    @agent
     def engineering_manager(self) -> Agent:
         return Agent(config=self.agents_config["engineering_manager"],
                      llm=_llm("EM_MODEL"), tools=[], verbose=True)
@@ -323,6 +330,12 @@ class OpenWallyCrew:
                     output_file=str(self._docs_dir / "3_security.md"))
 
     @task
+    def design_database(self) -> Task:
+        return Task(config=self.tasks_config["design_database"],
+                    human_input=self._human_input("design_database"),
+                    output_file=str(self._docs_dir / "3a_database_design.md"))
+
+    @task
     def plan_tasks(self) -> Task:
         return Task(config=self.tasks_config["plan_tasks"],
                     human_input=self._human_input("plan_tasks"),
@@ -372,6 +385,7 @@ class OpenWallyCrew:
             self.write_requirements(),
             self.design_system(),
             self.threat_model(),
+            self.design_database(),
             self.plan_tasks(),
             self.design_ui(),
             self.implement_code(),
