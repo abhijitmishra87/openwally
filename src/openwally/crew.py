@@ -187,7 +187,6 @@ class OpenWallyCrew:
         self._mode = mode
         self._review_depth = review_depth
         self._validate = validate
-        super().__init__()
 
     # ── Tool factories ────────────────────────────────────────────────────────
 
@@ -371,7 +370,6 @@ class RevisionCrew:
         self._revision_num = revision_num
         self._mode = mode
         self._validate = validate
-        super().__init__()
 
     def _doc_writer(self) -> ArtifactWriterTool:
         return ArtifactWriterTool(output_dir=str(self._docs_dir))
