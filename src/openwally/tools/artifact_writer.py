@@ -1,5 +1,6 @@
 from pathlib import Path
 from crewai.tools import BaseTool
+from loguru import logger
 from pydantic import BaseModel, Field
 
 
@@ -21,4 +22,5 @@ class ArtifactWriterTool(BaseTool):
         target = Path(self.output_dir) / file_name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+        logger.debug("Artifact written: {} ({} chars)", file_name, len(content))
         return f"Artifact written: {target}"

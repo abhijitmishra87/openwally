@@ -1,5 +1,6 @@
 from pathlib import Path
 from crewai.tools import BaseTool
+from loguru import logger
 from pydantic import BaseModel, Field
 
 
@@ -23,5 +24,8 @@ class ArtifactReaderTool(BaseTool):
         path = Path(self.docs_dir) / file_name
         if not path.exists():
             available = [f.name for f in Path(self.docs_dir).glob("*.md")]
+            logger.warning("Artifact not found: {} — available: {}", file_name, available)
             return f"File '{file_name}' not found. Available: {available}"
-        return path.read_text(encoding="utf-8")
+        content = path.read_text(encoding="utf-8")
+        logger.debug("Artifact read: {} ({} chars)", file_name, len(content))
+        return content

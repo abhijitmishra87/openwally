@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from crewai.tools import BaseTool
+from loguru import logger
 from pydantic import BaseModel, Field
 
 
@@ -28,4 +29,5 @@ class ProjectFileWriterTool(BaseTool):
         target = Path(self.project_dir) / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+        logger.debug("Project file written: {} ({} chars)", relative_path, len(content))
         return f"Written: {target}"

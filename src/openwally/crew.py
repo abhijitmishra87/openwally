@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
+from crewai.tasks.task_output import TaskOutput
 from dotenv import load_dotenv
+from loguru import logger
 
 from openwally.tools.artifact_writer import ArtifactWriterTool
 from openwally.tools.artifact_reader import ArtifactReaderTool
@@ -85,6 +87,12 @@ _REVIEW_INSTRUCTIONS: dict[str, str] = {
         "from the code you read."
     ),
 }
+
+
+def _log_task_completion(output: TaskOutput) -> None:
+    agent_name = getattr(output, "agent", "unknown agent")
+    summary = (output.summary or output.raw or "")[:120].replace("\n", " ")
+    logger.info("Agent handover — {} finished | summary: {}…", agent_name, summary)
 
 
 def _llm(model_key: str) -> LLM:
@@ -284,7 +292,8 @@ class OpenWallyCrew:
             tasks.append(self.review_code())
         tasks.extend([self.write_tests(), self.uat_report()])
         return Crew(agents=self.agents, tasks=tasks,
-                    process=Process.sequential, verbose=True)
+                    process=Process.sequential, verbose=True,
+                    task_callback=_log_task_completion)
 
 
 # ── Revision crew (runs only on NO-GO) ───────────────────────────────────────
@@ -390,4 +399,5 @@ class RevisionCrew:
     @crew
     def crew(self) -> Crew:
         return Crew(agents=self.agents, tasks=self.tasks,
-                    process=Process.sequential, verbose=True)
+                    process=Process.sequential, verbose=True,
+                    task_callback=_log_task_completion)

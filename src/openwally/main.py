@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
@@ -119,6 +120,21 @@ def run() -> None:
     docs_dir = project_dir / ".harness-docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
 
+    # Remove the default stderr sink — Rich handles terminal output.
+    # Log everything DEBUG+ to a file in the harness docs folder.
+    logger.remove()
+    logger.add(
+        docs_dir / "openwally.log",
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {name}:{line} | {message}",
+        rotation="10 MB",
+        retention=3,
+        encoding="utf-8",
+    )
+    logger.info("OpenWally pipeline starting — project: {}", project_name)
+    logger.info("Mode: {}  review_depth: {}  validate: {}  max_revisions: {}",
+                args.mode, args.review_depth, not args.no_validate, args.max_revisions)
+
     console.print(Panel(spec, title="[bold cyan]Project Spec[/bold cyan]", border_style="cyan"))
     console.print(f"[bold]Project:[/bold]       {project_name}")
     console.print(f"[bold]Output:[/bold]        {project_dir}")
@@ -131,6 +147,7 @@ def run() -> None:
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
     console.print(Rule("[bold]Pipeline — Pass 1[/bold]"))
+    logger.info("Starting main pipeline (pass 1)")
     review_instructions = _REVIEW_INSTRUCTIONS.get(args.review_depth, "")
     backend_val = BACKEND_VALIDATION_INSTRUCTIONS if validate else ""
     frontend_val = FRONTEND_VALIDATION_INSTRUCTIONS if validate else ""
@@ -154,6 +171,7 @@ def run() -> None:
 
     while not _is_go(docs_dir, uat_report) and revision < args.max_revisions:
         revision += 1
+        logger.warning("UAT NO-GO — starting revision cycle {}/{}", revision, args.max_revisions)
         console.print(Rule(
             f"[bold yellow]UAT — NO-GO · Revision {revision}/{args.max_revisions}[/bold yellow]"
         ))
@@ -180,8 +198,10 @@ def run() -> None:
 
     # ── Final verdict ──────────────────────────────────────────────────────────
     if _is_go(docs_dir, uat_report):
+        logger.info("UAT verdict: GO — pipeline complete")
         console.print(Rule("[bold green]UAT — GO ✓[/bold green]"))
     else:
+        logger.error("UAT verdict: NO-GO after {} revision(s) — manual fixes required", revision)
         console.print(Rule("[bold red]UAT — NO-GO after max revisions[/bold red]"))
         console.print(
             f"  [yellow]Reached revision limit ({args.max_revisions}) without a GO verdict.[/yellow]\n"

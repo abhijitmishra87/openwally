@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 from crewai.tools import BaseTool
+from loguru import logger
 
 
 class NpmBuildTool(BaseTool):
@@ -16,11 +17,14 @@ class NpmBuildTool(BaseTool):
         frontend_path = Path(self.project_dir) / "frontend"
 
         if not frontend_path.exists():
+            logger.warning("npm_build: no frontend/ directory in {}", self.project_dir)
             return "No frontend/ directory found — write frontend files first."
 
         if not (frontend_path / "package.json").exists():
+            logger.warning("npm_build: no package.json in {}", str(frontend_path))
             return "No package.json found in frontend/ — write it before running the build."
 
+        logger.info("Running npm build validation in {}", str(frontend_path))
         install = subprocess.run(
             ["npm", "install", "--silent", "--no-audit", "--no-fund"],
             cwd=str(frontend_path),
@@ -30,7 +34,10 @@ class NpmBuildTool(BaseTool):
         )
         if install.returncode != 0:
             output = (install.stdout + install.stderr).strip()
+            logger.error("npm install failed: {}", output[:500])
             return f"npm install failed:\n{output[:4000]}"
+
+        logger.debug("npm install succeeded")
 
         build = subprocess.run(
             ["npm", "run", "build"],
@@ -45,5 +52,9 @@ class NpmBuildTool(BaseTool):
             output = output[:8000] + "\n... (output truncated)"
 
         if build.returncode == 0:
+            logger.info("npm run build succeeded")
             return f"Build succeeded.\n{output}"
+
+        logger.warning("npm run build failed (exit {}) — agent will attempt fixes", build.returncode)
+        logger.debug("npm build output:\n{}", output[:2000])
         return f"Build failed (exit {build.returncode}):\n{output}"

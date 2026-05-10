@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 from crewai.tools import BaseTool
+from loguru import logger
 
 
 class PytestRunnerTool(BaseTool):
@@ -16,13 +17,16 @@ class PytestRunnerTool(BaseTool):
         project_path = Path(self.project_dir)
 
         if not project_path.exists():
+            logger.error("pytest_runner: project directory not found: {}", self.project_dir)
             return f"Error: project directory not found at {self.project_dir}"
 
         tests_dir = project_path / "tests"
         if not tests_dir.exists():
+            logger.warning("pytest_runner: no tests/ directory found in {}", self.project_dir)
             return "No tests/ directory found — write test files first before running pytest."
 
         deps_file = project_path / "deps.txt"
+        logger.info("Running pytest validation in {}", self.project_dir)
         with_flags: list[str] = ["--with", "pytest", "--with", "pytest-asyncio", "--with", "httpx"]
         if deps_file.exists():
             for line in deps_file.read_text(encoding="utf-8").splitlines():
@@ -41,5 +45,11 @@ class PytestRunnerTool(BaseTool):
         output = (result.stdout + result.stderr).strip()
         if len(output) > 8000:
             output = output[:8000] + "\n... (output truncated)"
+
+        if result.returncode == 0:
+            logger.info("pytest passed (exit 0)")
+        else:
+            logger.warning("pytest failed (exit {}) — agent will attempt fixes", result.returncode)
+        logger.debug("pytest output:\n{}", output[:2000])
 
         return output or "pytest produced no output"

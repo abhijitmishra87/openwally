@@ -1,5 +1,6 @@
 from pathlib import Path
 from crewai.tools import BaseTool
+from loguru import logger
 from pydantic import BaseModel, Field
 
 
@@ -28,6 +29,7 @@ class ProjectFileReaderTool(BaseTool):
         target = Path(self.project_dir) / path
 
         if not target.exists():
+            logger.warning("Project file not found: {}", path)
             # suggest what is available at the nearest existing parent
             parent = target.parent
             while not parent.exists() and parent != parent.parent:
@@ -52,7 +54,7 @@ class ProjectFileReaderTool(BaseTool):
             return f"Files in '{path}':\n" + "\n".join(f"  {f}" for f in files)
 
         content = target.read_text(encoding="utf-8", errors="replace")
-        # guard against accidentally reading huge binary-ish files
+        logger.debug("Project file read: {} ({} chars)", path, len(content))
         if len(content) > 50_000:
             return (
                 f"File is large ({len(content):,} chars). First 50,000 chars shown:\n\n"
