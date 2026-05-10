@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-python@v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install bandit
         run: pip install bandit[toml]
@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-python@v5.6.0
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Upgrade pip and build tools
         run: pip install --upgrade pip setuptools wheel
