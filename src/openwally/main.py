@@ -128,6 +128,9 @@ def run() -> None:
     docs_dir = project_dir / ".harness-docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
 
+    validate = not args.no_validate
+    standards = not args.no_standards
+
     # Remove the default stderr sink — Rich handles terminal output.
     # Log everything DEBUG+ to a file in the harness docs folder.
     logger.remove()
@@ -146,8 +149,6 @@ def run() -> None:
     console.print(Panel(spec, title="[bold cyan]Project Spec[/bold cyan]", border_style="cyan"))
     console.print(f"[bold]Project:[/bold]       {project_name}")
     console.print(f"[bold]Output:[/bold]        {project_dir}")
-    validate = not args.no_validate
-    standards = not args.no_standards
     console.print(f"[bold]Mode:[/bold]          [cyan]{args.mode}[/cyan] — {_mode_description(args.mode)}")
     console.print(f"[bold]Review depth:[/bold]  [cyan]{args.review_depth}[/cyan]")
     console.print(f"[bold]Validation:[/bold]    [cyan]{'on' if validate else 'off'}[/cyan]"
