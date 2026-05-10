@@ -6,23 +6,21 @@ from loguru import logger
 class ArtifactWriterTool(BaseTool):
     name: str = "write_artifact"
     description: str = (
-        "Persist a pipeline document (requirements, architecture, security, tasks, UAT report) "
-        "to the docs folder. "
-        "Arguments: file_name (str) — e.g. '1_requirements.md'; "
-        "content (str) — the complete markdown content to write. Both are required."
+        "Save your complete document to disk. "
+        "Pass the ENTIRE document text as the content argument — "
+        "do not omit any sections or summarise."
     )
-    output_dir: str = "./output"
+    output_dir: str = ""
+    file_name: str = ""
 
-    def _run(self, file_name: str, content: str = "") -> str:
-        if not content:
+    def _run(self, content: str) -> str:
+        if not content or not content.strip():
             return (
-                f"Error: 'content' argument is missing. "
-                f"You must call this tool with BOTH arguments: "
-                f"file_name='{file_name}' AND content='<your complete document text>'. "
-                f"Please call the tool again including the full document as the content argument."
+                "Error: content is empty. Pass your complete document text "
+                "as the content argument and call this tool again."
             )
-        target = Path(self.output_dir) / file_name
+        target = Path(self.output_dir) / self.file_name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
-        logger.debug("Artifact written: {} ({} chars)", file_name, len(content))
-        return f"Artifact written: {target}"
+        logger.debug("Artifact written: {} ({} chars)", self.file_name, len(content))
+        return f"Artifact written: {self.file_name}"

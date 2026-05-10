@@ -195,8 +195,8 @@ class OpenWallyCrew:
 
     # ── Tool factories ────────────────────────────────────────────────────────
 
-    def _doc_writer(self) -> ArtifactWriterTool:
-        return ArtifactWriterTool(output_dir=str(self._docs_dir))
+    def _doc_writer(self, file_name: str) -> ArtifactWriterTool:
+        return ArtifactWriterTool(output_dir=str(self._docs_dir), file_name=file_name)
 
     def _doc_reader(self) -> ArtifactReaderTool:
         return ArtifactReaderTool(docs_dir=str(self._docs_dir))
@@ -225,31 +225,36 @@ class OpenWallyCrew:
     @agent
     def program_manager(self) -> Agent:
         return Agent(config=self.agents_config["program_manager"],
-                     llm=_llm("PM_MODEL"), tools=[self._doc_writer()], verbose=True)
+                     llm=_llm("PM_MODEL"),
+                     tools=[self._doc_writer("1_requirements.md")], verbose=True)
 
     @agent
     def software_architect(self) -> Agent:
         return Agent(config=self.agents_config["software_architect"],
-                     llm=_llm("ARCHITECT_MODEL"), tools=[self._doc_writer()], verbose=True)
+                     llm=_llm("ARCHITECT_MODEL"),
+                     tools=[self._doc_writer("2_architecture.md")], verbose=True)
 
     @agent
     def security_architect(self) -> Agent:
         return Agent(config=self.agents_config["security_architect"],
-                     llm=_llm("SECURITY_MODEL"), tools=[self._doc_writer()], verbose=True)
+                     llm=_llm("SECURITY_MODEL"),
+                     tools=[self._doc_writer("3_security.md")], verbose=True)
 
     @agent
     def engineering_manager(self) -> Agent:
         return Agent(config=self.agents_config["engineering_manager"],
-                     llm=_llm("EM_MODEL"), tools=[self._doc_writer()], verbose=True)
+                     llm=_llm("EM_MODEL"),
+                     tools=[self._doc_writer("4_tasks.md")], verbose=True)
 
     @agent
     def ui_designer(self) -> Agent:
         return Agent(config=self.agents_config["ui_designer"],
-                     llm=_llm("UI_DESIGNER_MODEL"), tools=[self._doc_writer()], verbose=True)
+                     llm=_llm("UI_DESIGNER_MODEL"),
+                     tools=[self._doc_writer("5_ui_design.md")], verbose=True)
 
     @agent
     def developer(self) -> Agent:
-        tools = [self._file_writer(), self._doc_writer()]
+        tools = [self._file_writer(), self._doc_writer("6_implementation_manifest.md")]
         if self._validate:
             tools.append(self._pytest_runner())
         return Agent(config=self.agents_config["developer"],
@@ -257,7 +262,7 @@ class OpenWallyCrew:
 
     @agent
     def ui_developer(self) -> Agent:
-        tools = [self._file_writer(), self._doc_writer()]
+        tools = [self._file_writer(), self._doc_writer("7_ui_manifest.md")]
         if self._validate:
             tools.append(self._npm_builder())
         return Agent(config=self.agents_config["ui_developer"],
@@ -267,7 +272,8 @@ class OpenWallyCrew:
     def code_reviewer(self) -> Agent:
         return Agent(config=self.agents_config["code_reviewer"],
                      llm=_llm("CODE_REVIEWER_MODEL"),
-                     tools=[self._file_reader(), self._doc_reader(), self._doc_writer()],
+                     tools=[self._file_reader(), self._doc_reader(),
+                            self._doc_writer("8_code_review.md")],
                      verbose=True)
 
     @agent
@@ -275,14 +281,15 @@ class OpenWallyCrew:
         return Agent(config=self.agents_config["quality_engineer"],
                      llm=_llm("QA_MODEL"),
                      tools=[self._file_writer(), self._file_reader(),
-                            self._doc_writer(), self._doc_reader()],
+                            self._doc_writer("9_test_plan.md"), self._doc_reader()],
                      verbose=True)
 
     @agent
     def uat_tester(self) -> Agent:
         return Agent(config=self.agents_config["uat_tester"],
                      llm=_llm("UAT_MODEL"),
-                     tools=[self._doc_writer(), self._doc_reader()], verbose=True)
+                     tools=[self._doc_writer("10_uat_report.md"), self._doc_reader()],
+                     verbose=True)
 
     # ── Tasks ─────────────────────────────────────────────────────────────────
 
@@ -377,8 +384,8 @@ class RevisionCrew:
         self._validate = validate
         self._on_task_complete = on_task_complete
 
-    def _doc_writer(self) -> ArtifactWriterTool:
-        return ArtifactWriterTool(output_dir=str(self._docs_dir))
+    def _doc_writer(self, file_name: str) -> ArtifactWriterTool:
+        return ArtifactWriterTool(output_dir=str(self._docs_dir), file_name=file_name)
 
     def _doc_reader(self) -> ArtifactReaderTool:
         return ArtifactReaderTool(docs_dir=str(self._docs_dir))
@@ -403,7 +410,8 @@ class RevisionCrew:
     @agent
     def developer(self) -> Agent:
         tools = [self._file_writer(), self._file_reader(),
-                 self._doc_writer(), self._doc_reader()]
+                 self._doc_writer(f"revision_{self._revision_num}_backend_fixes.md"),
+                 self._doc_reader()]
         if self._validate:
             tools.append(self._pytest_runner())
         return Agent(config=self.agents_config["developer"],
@@ -412,7 +420,8 @@ class RevisionCrew:
     @agent
     def ui_developer(self) -> Agent:
         tools = [self._file_writer(), self._file_reader(),
-                 self._doc_writer(), self._doc_reader()]
+                 self._doc_writer(f"revision_{self._revision_num}_ui_fixes.md"),
+                 self._doc_reader()]
         if self._validate:
             tools.append(self._npm_builder())
         return Agent(config=self.agents_config["ui_developer"],
@@ -423,14 +432,16 @@ class RevisionCrew:
         return Agent(config=self.agents_config["quality_engineer"],
                      llm=_llm("QA_MODEL"),
                      tools=[self._file_writer(), self._file_reader(),
-                            self._doc_writer(), self._doc_reader()],
+                            self._doc_writer(f"revision_{self._revision_num}_test_plan.md"),
+                            self._doc_reader()],
                      verbose=True)
 
     @agent
     def uat_tester(self) -> Agent:
         return Agent(config=self.agents_config["uat_tester"],
                      llm=_llm("UAT_MODEL"),
-                     tools=[self._doc_writer(), self._doc_reader()],
+                     tools=[self._doc_writer(f"revision_{self._revision_num}_uat_report.md"),
+                            self._doc_reader()],
                      verbose=True)
 
     # ── Tasks ─────────────────────────────────────────────────────────────────
