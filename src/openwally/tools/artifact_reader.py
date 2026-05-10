@@ -1,13 +1,6 @@
 from pathlib import Path
 from crewai.tools import BaseTool
 from loguru import logger
-from pydantic import BaseModel, Field
-
-
-class ReadArtifactInput(BaseModel):
-    file_name: str = Field(
-        description="Name of the pipeline document to read, e.g. '2_architecture.md'"
-    )
 
 
 class ArtifactReaderTool(BaseTool):
@@ -15,9 +8,9 @@ class ArtifactReaderTool(BaseTool):
     description: str = (
         "Read a pipeline document produced by a prior agent (requirements, architecture, "
         "security, tasks, UI design, UAT report, etc.) from the docs folder. "
-        "Use this to access prior context during revision cycles."
+        "Use this to access prior context during revision cycles. "
+        "Arguments: file_name (str) — e.g. '2_architecture.md'."
     )
-    args_schema: type[BaseModel] = ReadArtifactInput
     docs_dir: str = ""
 
     def _run(self, file_name: str) -> str:

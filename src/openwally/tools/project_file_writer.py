@@ -2,17 +2,6 @@ import os
 from pathlib import Path
 from crewai.tools import BaseTool
 from loguru import logger
-from pydantic import BaseModel, Field
-
-
-class WriteProjectFileInput(BaseModel):
-    relative_path: str = Field(
-        description=(
-            "Path of the file relative to the project root. "
-            "Examples: 'src/myapp/main.py', 'tests/test_main.py', 'deps.txt'"
-        )
-    )
-    content: str = Field(description="Complete file content — no placeholders, no ellipsis.")
 
 
 class ProjectFileWriterTool(BaseTool):
@@ -20,9 +9,10 @@ class ProjectFileWriterTool(BaseTool):
     description: str = (
         "Write a source file into the generated project directory. "
         "Use this for every Python module, test file, config file, and deps.txt. "
-        "Call once per file — do not combine multiple files into one call."
+        "Call once per file — do not combine multiple files into one call. "
+        "Arguments: relative_path (str) — e.g. 'src/myapp/main.py'; "
+        "content (str) — the complete file content. Both are required."
     )
-    args_schema: type[BaseModel] = WriteProjectFileInput
     project_dir: str = ""
 
     def _run(self, relative_path: str, content: str) -> str:

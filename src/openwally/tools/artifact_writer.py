@@ -1,21 +1,16 @@
 from pathlib import Path
 from crewai.tools import BaseTool
 from loguru import logger
-from pydantic import BaseModel, Field
-
-
-class WriteArtifactInput(BaseModel):
-    file_name: str = Field(description="File name, e.g. '1_requirements.md'")
-    content: str = Field(description="Full markdown content to write")
 
 
 class ArtifactWriterTool(BaseTool):
     name: str = "write_artifact"
     description: str = (
         "Persist a pipeline document (requirements, architecture, security, tasks, UAT report) "
-        "to the docs folder. Pass a file_name and the complete markdown content."
+        "to the docs folder. "
+        "Arguments: file_name (str) — e.g. '1_requirements.md'; "
+        "content (str) — the complete markdown content to write. Both are required."
     )
-    args_schema: type[BaseModel] = WriteArtifactInput
     output_dir: str = "./output"
 
     def _run(self, file_name: str, content: str) -> str:

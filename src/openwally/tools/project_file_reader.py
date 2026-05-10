@@ -1,17 +1,6 @@
 from pathlib import Path
 from crewai.tools import BaseTool
 from loguru import logger
-from pydantic import BaseModel, Field
-
-
-class ReadProjectFileInput(BaseModel):
-    path: str = Field(
-        description=(
-            "Relative path inside the project. "
-            "Pass a file path to read its contents (e.g. 'src/myapp/main.py'). "
-            "Pass a directory path or '.' to list all files recursively."
-        )
-    )
 
 
 class ProjectFileReaderTool(BaseTool):
@@ -20,9 +9,10 @@ class ProjectFileReaderTool(BaseTool):
         "Read a source file from the generated project directory, or list all files "
         "in a directory. Use this to inspect what the developers actually wrote — "
         "cross-reference against architecture contracts, security requirements, and "
-        "task definitions of done."
+        "task definitions of done. "
+        "Arguments: path (str) — relative file path e.g. 'src/myapp/main.py', "
+        "or a directory path e.g. '.' to list all files recursively."
     )
-    args_schema: type[BaseModel] = ReadProjectFileInput
     project_dir: str = ""
 
     def _run(self, path: str) -> str:
