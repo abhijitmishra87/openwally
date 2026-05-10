@@ -27,6 +27,7 @@ _MODELS: dict[str, str] = {
     "CODE_REVIEWER_MODEL":  os.getenv("CODE_REVIEWER_MODEL",  "claude-opus-4-7"),
     "QA_MODEL":             os.getenv("QA_MODEL",             "claude-sonnet-4-6"),
     "UAT_MODEL":            os.getenv("UAT_MODEL",            "claude-haiku-4-5-20251001"),
+    "TECH_WRITER_MODEL":    os.getenv("TECH_WRITER_MODEL",    "claude-sonnet-4-6"),
 }
 
 # Valid modes and which tasks pause for human review in each mode.
@@ -58,6 +59,7 @@ TEAM_ROSTER: str = (
     "10. Code Reviewer          owns 8_code_review.md (compliance verdict)\n"
     "11. Quality Engineer       owns 9_test_plan.md + tests/, frontend/src/__tests__/\n"
     "12. UAT Tester             owns 10_uat_report.md (final GO / NO-GO)\n"
+    "13. Technical Writer       owns 11_documentation.md + README.md, docs/api.md, docs/architecture.md, docs/adr/, CONTRIBUTING.md, CHANGELOG.md\n"
     "\n"
     "OWNERSHIP RULES — stay in your lane:\n"
     "• If you are not the Database Engineer, reference the schema, do not redesign it.\n"
@@ -350,6 +352,13 @@ class OpenWallyCrew:
                      llm=_llm("UAT_MODEL"),
                      tools=[self._doc_reader()], verbose=True)
 
+    @agent
+    def technical_writer(self) -> Agent:
+        return Agent(config=self.agents_config["technical_writer"],
+                     llm=_llm("TECH_WRITER_MODEL"),
+                     tools=[self._file_writer(), self._file_reader(), self._doc_reader()],
+                     verbose=True)
+
     # ── Tasks ─────────────────────────────────────────────────────────────────
 
     @task
@@ -424,6 +433,12 @@ class OpenWallyCrew:
                     human_input=self._human_input("uat_report"),
                     output_file=str(self._docs_dir / "10_uat_report.md"))
 
+    @task
+    def document_project(self) -> Task:
+        return Task(config=self.tasks_config["document_project"],
+                    human_input=self._human_input("document_project"),
+                    output_file=str(self._docs_dir / "11_documentation.md"))
+
     # ── Crew ──────────────────────────────────────────────────────────────────
 
     @crew
@@ -441,7 +456,7 @@ class OpenWallyCrew:
         ]
         if self._review_depth != "off":
             tasks.append(self.review_code())
-        tasks.extend([self.write_tests(), self.uat_report()])
+        tasks.extend([self.write_tests(), self.uat_report(), self.document_project()])
         return Crew(agents=self.agents, tasks=tasks,
                     process=Process.sequential, verbose=True,
                     task_callback=_make_task_callback(self._on_task_complete))

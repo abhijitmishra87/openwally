@@ -542,6 +542,91 @@ uat_report:
   agent: uat_tester
   context: [write_requirements, design_system, threat_model, plan_tasks, design_ui, implement_code, implement_ui, review_code, write_tests]
 
+document_project:
+  description: >
+    {team_roster}
+
+    The pipeline has produced a working project. Your job is to turn the design
+    artifacts and the actual source code into the documentation set a real
+    contributor or evaluator would expect.
+
+    Step 1 — Read everything.
+    Use `read_artifact` to read the requirements, architecture, security,
+    database design, task list, UI design, both implementation manifests, the
+    devops plan, the code review, the test plan, and the UAT report. Use
+    `read_project_file` to spot-check the actual source — every code snippet
+    you cite must come from a real file.
+
+    Step 2 — Write README.md (use `write_project_file` with relative_path 'README.md').
+    Structure:
+      # <Project Name>
+      One-sentence description of what this project does and who it is for.
+      Two-paragraph overview — the problem it solves and the high-level approach.
+      ## Features
+      - Bullet list grounded in FR-xxx requirements.
+      ## Quick start
+      A copy-pasteable block that gets the user from clone to running app in
+      under 60 seconds, native (uv) flow.
+      ## Architecture
+      A 3-4 paragraph summary with the Mermaid component diagram pulled from
+      2_architecture.md. Link to docs/architecture.md for detail.
+      ## API
+      A short usage example for the most common endpoint. Link to docs/api.md
+      for the full reference.
+      ## Configuration
+      Every env var the project reads, what it defaults to, and what it controls.
+      Cross-reference .env.example.
+      ## Project structure
+      An annotated tree of the top two directory levels.
+      ## Contributing
+      Link to CONTRIBUTING.md.
+      ## License
+      Pull from the LICENSE file at the root if present, otherwise note "TBD".
+
+    Do NOT write a "Deployment" section — the harness appends that automatically
+    after you run.
+
+    Step 3 — Write docs/api.md.
+    A complete API reference grounded in 2_architecture.md and the actual
+    handler code. For each endpoint:
+      ### `<METHOD> <path>`
+      One-sentence description. Then sections: Request (path/query/body shape
+      with field types and which are required), Responses (per status code with
+      example body), Errors (the structured error envelope), Auth (which SR-xxx
+      it satisfies). Sort endpoints alphabetically by path within method groups.
+
+    Step 4 — Write docs/architecture.md.
+    A cleaned-up, externally-readable version of 2_architecture.md and
+    3a_database_design.md combined: component overview, data flow, persistence
+    layer, key technology choices with one-line justifications. No internal
+    chatter — this is for someone evaluating the project from outside.
+
+    Step 5 — Write Architecture Decision Records.
+    For each major decision in 2_architecture.md and 3a_database_design.md
+    (database engine, web framework, auth approach, deployment target), write
+    a short ADR under docs/adr/. Use the convention 0001-<slug>.md, 0002-<slug>.md.
+    Each ADR has Status, Context, Decision, Consequences. Aim for 4-8 ADRs total
+    — only the load-bearing decisions, not every choice.
+
+    Step 6 — Write CONTRIBUTING.md.
+    Cover: how to set up the dev environment (uv sync, npm install), how to run
+    tests, the commit message convention, the PR review expectations, and where
+    to file issues. Keep it under 200 lines.
+
+    Step 7 — Write CHANGELOG.md.
+    A single-entry initial CHANGELOG following the Keep a Changelog format,
+    listing the major features delivered in this v0.1.0 release.
+
+    Your final response must be a one-page documentation summary listing every
+    file you wrote, the section structure of each, and any gaps where the source
+    code did not match the design clearly enough to document confidently.
+  expected_output: >
+    A documentation summary listing every file written (README.md, docs/api.md,
+    docs/architecture.md, docs/adr/*.md, CONTRIBUTING.md, CHANGELOG.md) with the
+    section structure of each, plus any documentation gaps flagged.
+  agent: technical_writer
+  context: [write_requirements, design_system, threat_model, design_database, plan_tasks, design_ui, implement_code, implement_ui, plan_deploy, review_code, write_tests, uat_report]
+
 # ── Revision cycle tasks (used only when UAT returns NO-GO) ──────────────────
 
 fix_code:
