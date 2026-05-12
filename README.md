@@ -66,7 +66,7 @@ If UAT returns a NO-GO verdict, a targeted revision crew automatically fixes the
 
 Every model is independently overridable via environment variable and supports both Claude and Ollama — see [Configuration](#configuration).
 
-> **Cost note:** a full 16-agent run is typically ~$5–10 in Anthropic API spend depending on spec complexity. Use `--review-depth=off` to drop the most expensive agent for a cheaper iteration loop (~$3–6).
+> **Cost note:** a full 16-agent run is typically ~\$5–\$10 in Anthropic API spend depending on spec complexity. Use `--review-depth=off` to drop the most expensive agent for a cheaper iteration loop (~\$3–\$6).
 
 ---
 
@@ -88,7 +88,7 @@ Optional:
 ## Installation
 
 ```bash
-git clone https://github.com/<you>/openwally.git
+git clone https://github.com/abhijitmishra87/openwally.git
 cd openwally
 
 uv venv
