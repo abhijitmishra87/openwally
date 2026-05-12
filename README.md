@@ -5,9 +5,10 @@
 <h1 align="center">OpenWally</h1>
 
 <p align="center">
-  An autonomous AI agent pipeline that generates complete software projects from a plain-text idea.<br/>
-  Nine specialized agents collaborate sequentially, each contributing domain expertise — from requirements<br/>
-  through architecture, security, UI design, code, tests, and a self-correcting UAT review cycle.
+  An autonomous AI agent pipeline that generates production-grade software projects from a plain-text idea.<br/>
+  Sixteen specialised agents collaborate sequentially — from requirements through API design, security,<br/>
+  database, code, deployment, observability, performance, tests, UAT, and a full documentation set —<br/>
+  with a self-correcting revision cycle when UAT fails.
 </p>
 
 <p align="center">
@@ -20,53 +21,67 @@
 
 ## How it works
 
-You provide a project idea. The pipeline does the rest:
+You provide a project idea. Sixteen specialised agents collaborate sequentially to produce a production-grade, deploy-ready project:
 
 ```
-Program Manager → Software Architect → Security Architect → Engineering Manager
-    → UI/UX Designer → Backend Developer → UI Developer → Code Reviewer → Quality Engineer → UAT Tester
-                                                                                                    ↓
-                                                                        NO-GO → Revision cycle (up to N times)
-                                                                            Backend Dev → UI Dev → QA → UAT
-                                                                                                          ↓
-                                                                                                        GO → scaffold & git
+Program Manager → Software Architect → API Designer → Security Architect → Database Engineer
+    → Engineering Manager → UI/UX Designer → Backend Developer → UI Developer
+        → DevOps Engineer → SRE → Performance Engineer
+            → Code Reviewer → Quality Engineer → UAT Tester → Technical Writer
+                                                                       ↓
+                                       NO-GO → Revision cycle (up to N times)
+                                           Backend Dev → UI Dev → QA → UAT
+                                                                          ↓
+                                                                        GO → scaffold & git
 ```
 
-Every agent appends a **Testing Notes** section to its artifact — domain-specific test cases consumed by the Quality Engineer and UAT Tester. Security test cases come from the Security Architect, API contract tests from the Software Architect, interaction state tests from the UI Designer, and implementation edge cases from the developers.
+Each agent receives a **team roster** in its prompt — who else is in the pipeline, what each owns, what they MUST NOT touch — so they stay in their lane and hand off cleanly rather than redoing each other's work.
 
-The **Code Reviewer** reads every source file after both developers finish, cross-references the code against the architecture contracts, security requirements, and task definitions of done, and produces a structured report before QA runs. This closes the gap between what was designed and what was actually built.
+Every agent appends a **Testing Notes** section to its artifact — domain-specific test cases consumed by the Quality Engineer. Security cases come from the Security Architect, integration cases from the API Designer, query/index cases from the Database Engineer, alert-firing cases from the SRE, and budget-violation cases from the Performance Engineer.
 
-If UAT returns a NO-GO verdict, a targeted revision crew automatically fixes the defects and re-evaluates — up to a configurable limit.
+The **Code Reviewer** reads every source file after the developers, DevOps, SRE, and Performance Engineer finish, cross-references the code against the architecture, OpenAPI spec, security requirements, schema, deploy plan, SLOs, and perf budget, and produces a structured report before QA runs.
+
+If UAT returns a NO-GO verdict, a targeted revision crew automatically fixes the defects and re-evaluates — up to a configurable limit. The Technical Writer always runs last to produce the user-facing documentation set.
 
 ### Agent roles and models
 
-| Agent | Default model | Responsibility |
-|---|---|---|
-| Program Manager | claude-opus-4-7 | Requirements doc, acceptance criteria, testing setup notes |
-| Software Architect | claude-opus-4-7 | System design, API contracts, integration test scenarios |
-| Security Architect | claude-opus-4-7 | STRIDE threat model, security requirements, concrete security test cases |
-| Engineering Manager | claude-sonnet-4-6 | Dev task list, testable definition-of-done per task |
-| UI/UX Designer | claude-opus-4-7 | Wireframes, design tokens, interaction state and form validation tests |
-| Backend Developer | claude-sonnet-4-6 | Python source code, implementation edge case notes |
-| UI Developer | claude-opus-4-7 | React + TypeScript + Tailwind + shadcn/ui, component test notes |
-| Code Reviewer | claude-opus-4-7 | Reads actual source files, verifies architecture/security/task compliance |
-| Quality Engineer | claude-sonnet-4-6 | Full test suite implementing every agent's Testing Notes + code review findings |
-| UAT Tester | claude-haiku-4-5 | Pass/fail against all ACs, SRs, architecture compliance, UI fidelity |
+| # | Agent | Default model | Responsibility |
+|---|---|---|---|
+| 1 | Program Manager | claude-opus-4-7 | Requirements, FR-xxx, AC-FR-xxx, testing setup notes |
+| 2 | Software Architect | claude-opus-4-7 | Component design, API contracts, technology choices |
+| 3 | API Designer | claude-sonnet-4-6 | OpenAPI 3.1 spec, error envelope, pagination, versioning, idempotency, rate limits |
+| 4 | Security Architect | claude-opus-4-7 | STRIDE threat model, SR-xxx, concrete security test cases |
+| 5 | Database Engineer | claude-opus-4-7 | Engine choice, ER model, DDL, indexes, reversible migrations, seed data |
+| 6 | Engineering Manager | claude-sonnet-4-6 | T-xxx task list with testable definitions-of-done |
+| 7 | UI/UX Designer | claude-opus-4-7 | Wireframes, design tokens, interaction states |
+| 8 | Backend Developer | claude-sonnet-4-6 | Python source code, deps.txt, conftest.py, start.sh |
+| 9 | UI Developer | claude-opus-4-7 | React + TypeScript + Tailwind + shadcn/ui |
+| 10 | DevOps Engineer | claude-sonnet-4-6 | CI/CD workflows, structured JSON logging, Prometheus metrics, optional k8s |
+| 11 | Site Reliability Eng | claude-sonnet-4-6 | SLOs, AlertManager rules, runbooks, Grafana dashboard |
+| 12 | Performance Engineer | claude-sonnet-4-6 | Perf budget, k6 scripts (smoke/load/spike), hot-path findings, capacity plan |
+| 13 | Code Reviewer | claude-opus-4-7 | Verifies code matches every prior artifact — architecture, API, security, schema, SLOs, perf |
+| 14 | Quality Engineer | claude-sonnet-4-6 | Full test suite implementing every agent's Testing Notes + review findings |
+| 15 | UAT Tester | claude-haiku-4-5 | Pass/fail against all ACs, SRs, contracts; final GO / NO-GO verdict |
+| 16 | Technical Writer | claude-sonnet-4-6 | README, docs/api.md, docs/architecture.md, ADRs, CONTRIBUTING.md, CHANGELOG.md |
 
 Every model is independently overridable via environment variable and supports both Claude and Ollama — see [Configuration](#configuration).
+
+> **Cost note:** a full 16-agent run is typically ~$5–10 in Anthropic API spend depending on spec complexity. Use `--review-depth=off` to drop the most expensive agent for a cheaper iteration loop (~$3–6).
 
 ---
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) — Python package manager
-- [Node.js](https://nodejs.org/) 18+ and `npm` — for the generated frontend
+- [Node.js](https://nodejs.org/) 24+ and `npm` — for the generated frontend
 - [git](https://git-scm.com/)
 - An Anthropic API key **or** [Ollama](https://ollama.com) running locally
 
-Optional, for pushing to GitHub:
-- [GitHub CLI (`gh`)](https://cli.github.com/)
+Optional:
+- [Docker](https://docs.docker.com/get-docker/) 24+ with the `compose` plugin — to deploy generated projects via the auto-scaffolded Dockerfile / compose.yml
+- [GitHub CLI (`gh`)](https://cli.github.com/) — to push generated projects to GitHub
+- [k6](https://k6.io/) — to run the auto-generated load tests under `perf/k6/`
 
 ---
 
@@ -166,6 +181,7 @@ By default, OpenWally injects a non-negotiable standards checklist into every ge
 | Env-var config | All config (DB URLs, keys, ports) from environment variables via `python-dotenv` — no hardcoded values |
 | Pydantic validation | All request/response shapes use Pydantic models |
 | HTTP status codes | 201 for creation, 400/401/403/404/422 for errors, 500 for unexpected failures |
+| Deploy-readiness | `start.sh` binds 0.0.0.0 + `$PORT`, `conftest.py` makes `src/` importable, no hardcoded paths, logs to stdout only |
 
 **Frontend (enforced on every generated React project):**
 
@@ -180,6 +196,8 @@ By default, OpenWally injects a non-negotiable standards checklist into every ge
 
 The **Code Reviewer** also checks for standards compliance as a dedicated section in its report — any violation is flagged as a finding.
 
+> **Live version lookups.** The Architect, Database Engineer, Backend Developer, UI Developer, DevOps Engineer, and Performance Engineer all have access to a `lookup_latest_version` tool that hits `endoflife.date`, PyPI, and the npm registry (no API key required) so they pick currently-supported runtimes and packages at generation time, not what their training data remembers.
+
 Use `--no-standards` for a bare-bones project where you'll apply your own conventions:
 
 ```bash
@@ -192,6 +210,39 @@ openwally run --spec-file idea.md --no-standards
 # Combine flags
 openwally run --spec-file idea.md --no-standards --no-validate
 ```
+
+---
+
+## Production-grade output
+
+Every generated project ships deploy-ready and operable on day one. Beyond the source code itself, the pipeline produces:
+
+| Capability | What gets generated | Owned by |
+|---|---|---|
+| **Containerised deploy** | Multi-stage `Dockerfile` (non-root, healthcheck on `/health`), `frontend/Dockerfile` (node:24 build → nginx:alpine serve), `docker-compose.yml`, `.dockerignore`, `nginx.conf` with `/api/` proxy | Harness scaffolding |
+| **Native deploy** | `Makefile` (`install`, `run`, `test`, `docker-up/down/logs`, `clean`), `.env.example`, `start.sh` (binds 0.0.0.0 + `$PORT`) | Harness + Backend Developer |
+| **Formal API contract** | `docs/openapi.yaml` (OpenAPI 3.1) with reusable schemas, error envelope, cursor pagination, versioning + deprecation policy, idempotency keys, rate-limit headers | API Designer |
+| **Persistence layer** | Engine choice with EOL check, ER diagram, complete DDL, indexes with query-pattern justifications, ordered reversible migrations, seed data | Database Engineer |
+| **CI/CD** | `.github/workflows/ci.yml` (pytest + npm build), `.github/workflows/docker.yml` (build + optional push gated on `DOCKER_REGISTRY` secret) | DevOps Engineer |
+| **Observability** | `logging_config.py` (structured JSON to stdout with request_id contextvar), `observability.py` (Prometheus counter/histogram/gauge on `/metrics`) | DevOps Engineer |
+| **Reliability** | 3–5 SLOs tied to user-visible behaviour, `ops/alerts.yaml` (AlertManager format, every alert links to a runbook), `docs/runbooks/*.md`, `ops/grafana/main-dashboard.json` | SRE |
+| **Performance** | Per-endpoint p50/p95/p99 budget, `perf/k6/{smoke,load,spike}.js`, hot-path findings citing file+line, capacity plan grounded in year-1 load | Performance Engineer |
+| **Documentation** | `README.md`, `docs/api.md` (full reference grounded in real code), `docs/architecture.md`, `docs/adr/*.md`, `CONTRIBUTING.md`, `CHANGELOG.md` | Technical Writer |
+
+Once generated, the project runs from any directory on any Linux server or macOS:
+
+```bash
+cd projects/my-project
+
+# Native
+make install && cp .env.example .env && make run
+
+# Docker
+cp .env.example .env && make docker-up
+curl http://localhost:8000/health
+```
+
+The Docker image runs as a non-root user, has a healthcheck wired to `/health`, exposes Prometheus metrics on `/metrics`, and emits structured JSON logs to stdout. The frontend image builds the SPA and serves it via nginx with `/api/` proxied to the backend over the compose network.
 
 ---
 
@@ -275,37 +326,75 @@ The generated project is written to `<output-dir>/<project-name>/`:
 
 ```
 my-project/
-├── src/my_project/          # Python backend source
-├── tests/                   # pytest suite (implements all Testing Notes from every agent)
+├── src/my_project/              # Python backend source
+│   ├── logging_config.py        # Structured JSON logging — DevOps
+│   └── observability.py         # Prometheus /metrics — DevOps
+├── tests/                       # pytest suite (every agent's Testing Notes + review findings)
 │   ├── conftest.py
 │   └── test_*.py
-├── frontend/                # React + TypeScript + Tailwind frontend
+├── frontend/                    # React + TypeScript + Tailwind frontend
 │   ├── src/
-│   │   ├── components/ui/   # shadcn/ui primitive wrappers
-│   │   ├── components/      # feature components
-│   │   ├── pages/           # one file per route
-│   │   ├── hooks/           # API hooks
-│   │   └── types/api.ts     # TypeScript types matching backend contracts
+│   │   ├── components/ui/       # shadcn/ui primitive wrappers
+│   │   ├── components/          # feature components
+│   │   ├── pages/               # one file per route
+│   │   ├── hooks/               # API hooks
+│   │   ├── __tests__/           # Component tests
+│   │   └── types/api.ts         # TypeScript types matching backend contracts
+│   ├── Dockerfile               # node:24 build → nginx:alpine serve — harness
+│   ├── nginx.conf               # SPA fallback + /api/ proxy — harness
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── tailwind.config.ts
-├── deps.txt                 # Python packages (consumed by uv)
-├── pyproject.toml           # Created by uv init
-├── uv.lock
-├── .venv/                   # Python virtual environment
+├── migrations/                  # Reversible SQL migrations — Database Engineer
+│   ├── 0001_*.sql
+│   └── seed.sql
+├── ops/                         # Reliability artifacts — SRE
+│   ├── alerts.yaml              # AlertManager rules linked to runbooks
+│   └── grafana/main-dashboard.json
+├── perf/                        # Performance — Performance Engineer
+│   └── k6/{smoke,load,spike}.js
+├── docs/                        # User-facing docs — Technical Writer
+│   ├── api.md
+│   ├── architecture.md
+│   ├── openapi.yaml             # OpenAPI 3.1 — API Designer
+│   ├── adr/0001-*.md, 0002-*.md, ...
+│   └── runbooks/*.md            # Per-alert runbooks — SRE
+├── .github/workflows/           # CI/CD — DevOps Engineer
+│   ├── ci.yml
+│   └── docker.yml
+├── Dockerfile                   # python:3.14-slim, multi-stage, non-root — harness
+├── docker-compose.yml           # backend + frontend with healthcheck-gated deps — harness
+├── Makefile                     # install / run / test / docker-* targets — harness
+├── start.sh                     # 0.0.0.0 + $PORT bind — Backend Developer
+├── conftest.py                  # makes src/ importable from any cwd — Backend Developer
+├── deps.txt                     # Python packages (consumed by uv)
+├── pyproject.toml               # Created by uv init
+├── uv.lock                      # Pinned dependency tree
+├── .dockerignore                # harness
+├── .env.example                 # harness (extend with app-specific vars)
 ├── .gitignore
-└── .harness-docs/           # Full pipeline audit trail
+├── README.md                    # Project overview — Technical Writer
+├── CONTRIBUTING.md              # Technical Writer
+├── CHANGELOG.md                 # Technical Writer
+└── .harness-docs/               # Full pipeline audit trail (16 artifacts + log)
+    ├── openwally.log
     ├── 1_requirements.md
     ├── 2_architecture.md
+    ├── 2a_api_spec.md
     ├── 3_security.md
+    ├── 3a_database_design.md
     ├── 4_tasks.md
     ├── 5_ui_design.md
     ├── 6_implementation_manifest.md
     ├── 7_ui_manifest.md
+    ├── 7a_devops_plan.md
+    ├── 7b_sre_plan.md
+    ├── 7c_performance_plan.md
     ├── 8_code_review.md
     ├── 9_test_plan.md
     ├── 10_uat_report.md
-    └── revision_*/          # Present only if revision cycles ran
+    ├── 11_documentation.md
+    └── revision_*/              # Present only if revision cycles ran
 ```
 
 After the pipeline finishes, OpenWally prints the commands to push your project to GitHub:
@@ -318,15 +407,28 @@ gh repo create my-project --private --source=./projects/my-project --push
 
 ## Running the generated project
 
+Every generated project ships with a Makefile that abstracts both flows:
+
 ```bash
 cd projects/my-project
+cp .env.example .env          # edit with real values if the app needs any
 
-# Backend
-uv run uvicorn src.my_project.main:app --reload
+# ── Native (Linux / macOS) ──
+make install                  # uv sync + npm install
+make run                      # ./start.sh — backend on :8000
+make test                     # pytest
 
-# Frontend (second terminal)
-cd frontend && npm run dev
+# Frontend dev server (second terminal)
+make run-frontend             # vite dev on :5173
+
+# ── Docker (recommended for prod) ──
+make docker-build
+make docker-up                # backend :8000, frontend :3000
+make docker-logs
+make docker-down
 ```
+
+Hit `http://localhost:8000/health` to verify, and `http://localhost:8000/metrics` to see the Prometheus metrics the DevOps agent wired.
 
 ---
 
@@ -339,14 +441,26 @@ All model assignments can be overridden in `.env`. Every role independently supp
 ```dotenv
 ANTHROPIC_API_KEY=sk-ant-...
 
+# High-reasoning roles
 PM_MODEL=claude-opus-4-7
 ARCHITECT_MODEL=claude-opus-4-7
 SECURITY_MODEL=claude-opus-4-7
-EM_MODEL=claude-sonnet-4-6
+DATABASE_MODEL=claude-opus-4-7
 UI_DESIGNER_MODEL=claude-opus-4-7
 UI_DEV_MODEL=claude-opus-4-7
+CODE_REVIEWER_MODEL=claude-opus-4-7
+
+# Specialist & engineering roles
+API_DESIGNER_MODEL=claude-sonnet-4-6
+EM_MODEL=claude-sonnet-4-6
 DEV_MODEL=claude-sonnet-4-6
+DEVOPS_MODEL=claude-sonnet-4-6
+SRE_MODEL=claude-sonnet-4-6
+PERF_MODEL=claude-sonnet-4-6
 QA_MODEL=claude-sonnet-4-6
+TECH_WRITER_MODEL=claude-sonnet-4-6
+
+# Pass/fail evaluator
 UAT_MODEL=claude-haiku-4-5-20251001
 ```
 
@@ -360,6 +474,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 QA_MODEL=ollama/llama3.2
 UAT_MODEL=ollama/mistral
+TECH_WRITER_MODEL=ollama/llama3.2
 ```
 
 ### Fully local — no API key required
@@ -369,13 +484,20 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 PM_MODEL=ollama/llama3.2
 ARCHITECT_MODEL=ollama/llama3.2
+API_DESIGNER_MODEL=ollama/llama3.2
 SECURITY_MODEL=ollama/mistral
+DATABASE_MODEL=ollama/llama3.2
 EM_MODEL=ollama/llama3.2
 UI_DESIGNER_MODEL=ollama/llama3.2
 UI_DEV_MODEL=ollama/llama3.2
 DEV_MODEL=ollama/mistral
+DEVOPS_MODEL=ollama/llama3.2
+SRE_MODEL=ollama/llama3.2
+PERF_MODEL=ollama/llama3.2
+CODE_REVIEWER_MODEL=ollama/mistral
 QA_MODEL=ollama/llama3.2
 UAT_MODEL=ollama/llama3.2
+TECH_WRITER_MODEL=ollama/llama3.2
 ```
 
 ### Ollama setup
@@ -413,20 +535,23 @@ inspect view   # browse results in the web UI
 ```
 openwally/
 ├── src/openwally/
-│   ├── crew.py              # OpenWallyCrew + RevisionCrew (@CrewBase)
-│   ├── main.py              # CLI — --mode, --max-revisions, revision loop
-│   ├── scaffolding.py       # uv + npm + git post-pipeline setup
+│   ├── crew.py                     # OpenWallyCrew + RevisionCrew, TEAM_ROSTER, standards
+│   ├── main.py                     # CLI — --mode, --review-depth, --max-revisions, revision loop
+│   ├── scaffolding.py              # uv + npm + deploy file generation + git
 │   ├── config/
-│   │   ├── agents.yaml      # Roles, goals, backstories, model assignments
-│   │   └── tasks.yaml       # Task descriptions, Testing Notes instructions, context chains
+│   │   ├── agents.yaml             # 16 agent roles, goals, backstories
+│   │   └── tasks.yaml              # Task descriptions, context chains, {team_roster} injection
 │   └── tools/
-│       ├── artifact_writer.py      # Writes pipeline docs to .harness-docs/
 │       ├── artifact_reader.py      # Reads pipeline docs (reviewer + revision agents)
-│       ├── project_file_writer.py  # Writes source files into the generated project
-│       └── project_file_reader.py  # Reads source files (code reviewer + QA)
+│       ├── project_file_writer.py  # Writes source files (path-doubling defended)
+│       ├── project_file_reader.py  # Reads source files (code reviewer + QA)
+│       ├── pytest_runner.py        # uv run --no-project pytest — in-pipeline validation
+│       ├── npm_build_runner.py     # npm run build — in-pipeline validation
+│       └── latest_version.py       # endoflife.date / PyPI / npm lookups (no API key)
 ├── eval/
-│   ├── pipeline_eval.py     # Inspect AI task definitions
-│   └── scorers.py           # Custom quality scorers
+│   ├── pipeline_eval.py            # Inspect AI task definitions
+│   └── scorers.py                  # Custom quality scorers
+├── .github/workflows/security.yml  # Bandit + pip-audit + Semgrep
 └── assets/
     └── logo.png
 ```
